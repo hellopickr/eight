@@ -1,0 +1,68 @@
+# Codemagic builds Eight for iPhone and uploads it to App Store Connect (TestFlight).
+# Before the first build, two things must exist in Codemagic:
+#   1. The App Store Connect API key integration named "Codemagic"
+#      (Personal account settings > Integrations > Developer Portal). Already set up.
+#   2. An app record in App Store Connect with bundle ID com.hellopickr.eight.
+workflows:
+  ios-release:
+    name: Eight iOS release
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.hellopickr.eight
+      vars:
+        BUNDLE_ID: com.hellopickr.eight
+      node: 20
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+    scripts:
+      - name: Install packages
+        script: npm install
+      - name: Create the iOS project
+        script: npx cap add ios
+      - name: Generate app icons
+        script: npx capacitor-assets generate --ios --iconBackgroundColor '#5b2bd6' --splashBackgroundColor '#5b2bd6'
+      - name: Configure Info.plist (name, back-tap link, encryption)
+        script: |
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Eight" "$PLIST" || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Eight" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleURLTypes" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy \
+            -c "Add :CFBundleURLTypes array" \
+            -c "Add :CFBundleURLTypes:0 dict" \
+            -c "Add :CFBundleURLTypes:0:CFBundleURLName string $BUNDLE_ID" \
+            -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" \
+            -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string eight" \
+            "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" "$PLIST"
+      - name: Copy the web app into iOS
+        script: npx cap sync ios
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Set version and build number
+        script: |
+          PBX=ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [^;]*;/CURRENT_PROJECT_VERSION = $BUILD_NUMBER;/g" "$PBX"
+          sed -i '' "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = 1.0.0;/g" "$PBX"
+      - name: Build the app
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

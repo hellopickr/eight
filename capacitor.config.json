@@ -1,0 +1,10 @@
+{
+  "appId": "com.hellopickr.eight",
+  "appName": "Eight",
+  "webDir": "docs",
+  "backgroundColor": "#ffffff",
+  "ios": {
+    "contentInset": "never",
+    "scheme": "Eight"
+  }
+}

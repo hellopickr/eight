@@ -1,0 +1,21 @@
+{
+  "name": "eight",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eight: a free, private budgeting app.",
+  "scripts": {
+    "ios:add": "cap add ios",
+    "ios:sync": "cap sync ios",
+    "icons": "capacitor-assets generate --ios --iconBackgroundColor '#5b2bd6' --splashBackgroundColor '#5b2bd6'"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/preferences": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0"
+  }
+}
