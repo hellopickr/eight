@@ -23,7 +23,16 @@ display_type = sys.argv[3] if len(sys.argv) > 3 else "APP_IPHONE_67"  # 6.9-inch
 
 
 def private_key():
-    raw = os.environ["APP_STORE_CONNECT_PRIVATE_KEY"].strip().replace("\\n", "\n")
+    raw = os.environ["APP_STORE_CONNECT_PRIVATE_KEY"].strip()
+    # Codemagic integrations pass the key as a reference: "@file:/path/key.p8" or "@env:VAR".
+    for _ in range(3):
+        if raw.startswith("@file:"):
+            raw = open(os.path.expanduser(raw[len("@file:"):]), encoding="utf-8").read().strip()
+        elif raw.startswith("@env:"):
+            raw = os.environ[raw[len("@env:"):]].strip()
+        else:
+            break
+    raw = raw.replace("\\n", "\n")
     if "BEGIN" not in raw:
         try:
             raw = base64.b64decode(raw).decode()
