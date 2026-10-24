@@ -110,6 +110,8 @@ workflows:
     name: Eight App Store screenshots
     instance_type: mac_mini_m2
     max_build_duration: 45
+    integrations:
+      app_store_connect: Codemagic
     environment:
       vars:
         BUNDLE_ID: com.hellopickr.eight
@@ -164,5 +166,34 @@ workflows:
           cp /tmp/eight-index.html "$APP/public/index.html"
           sips -g pixelWidth -g pixelHeight screenshots/*.png
           md5 screenshots/*.png
+      - name: Upload screenshots to the Eight 1.0 draft in App Store Connect
+        script: |
+          set -e
+          mkdir -p fastlane/screenshots/en-US
+          cp screenshots/*.png fastlane/screenshots/en-US/
+          python3 - <<'PY'
+          import json, os
+          json.dump({
+            "key_id": os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"],
+            "issuer_id": os.environ["APP_STORE_CONNECT_ISSUER_ID"],
+            "key": os.environ["APP_STORE_CONNECT_PRIVATE_KEY"],
+            "in_house": False
+          }, open("asc_key.json", "w"))
+          PY
+          fastlane deliver \
+            --api_key_path asc_key.json \
+            --app_identifier "$BUNDLE_ID" \
+            --platform ios \
+            --app_version 1.0 \
+            --skip_binary_upload true \
+            --skip_metadata true \
+            --skip_app_version_update true \
+            --overwrite_screenshots true \
+            --screenshots_path fastlane/screenshots \
+            --submit_for_review false \
+            --automatic_release false \
+            --run_precheck_before_submit false \
+            --force true
+          rm -f asc_key.json
     artifacts:
       - screenshots/*.png
