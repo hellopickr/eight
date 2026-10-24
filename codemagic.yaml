@@ -3,7 +3,7 @@
 # Workflows
 #   ios-release      Builds Eight and uploads it to App Store Connect / TestFlight.
 #   ios-screenshots  Runs Eight in the iPhone simulator and saves App Store screenshots
-#                    as build artifacts. Uploads nothing to Apple.
+#                    and uploads them to the 1.0 draft (never submits for review).
 #
 # Uses the App Store Connect API key integration named "Codemagic"
 # (Personal account settings > Integrations > Developer Portal).
@@ -169,45 +169,9 @@ workflows:
       - name: Upload screenshots to the Eight 1.0 draft in App Store Connect
         script: |
           set -e
-          mkdir -p fastlane/screenshots/en-US
-          cp screenshots/*.png fastlane/screenshots/en-US/
-          # A Deliverfile stops deliver from asking setup questions on the build machine.
-          printf 'app_identifier("%s")\nplatform("ios")\n' "$BUNDLE_ID" > fastlane/Deliverfile
-          export FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 CI=true
-          python3 - <<'PY'
-          import base64, json, os, re
-          raw = os.environ["APP_STORE_CONNECT_PRIVATE_KEY"].strip().replace("\\n", "\n")
-          if "BEGIN" not in raw:
-              try:
-                  raw = base64.b64decode(raw).decode()
-              except Exception:
-                  pass
-          body = re.sub(r"-----[^-]+-----", "", raw)
-          body = re.sub(r"\s+", "", body)
-          lines = [body[i:i+64] for i in range(0, len(body), 64)]
-          pem = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
-          print("Key lines:", len(lines))
-          json.dump({
-            "key_id": os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"],
-            "issuer_id": os.environ["APP_STORE_CONNECT_ISSUER_ID"],
-            "key": pem,
-            "in_house": False
-          }, open("asc_key.json", "w"))
-          PY
-          fastlane deliver \
-            --api_key_path asc_key.json \
-            --app_identifier "$BUNDLE_ID" \
-            --platform ios \
-            --app_version 1.0 \
-            --skip_binary_upload true \
-            --skip_metadata true \
-            --skip_app_version_update true \
-            --overwrite_screenshots true \
-            --screenshots_path fastlane/screenshots \
-            --submit_for_review false \
-            --automatic_release false \
-            --run_precheck_before_submit false \
-            --force true
-          rm -f asc_key.json
+          # Talks to the App Store Connect API directly (fastlane's key loader fails on this Ruby).
+          python3 -m venv /tmp/asc
+          /tmp/asc/bin/pip install --quiet pyjwt cryptography
+          /tmp/asc/bin/python scripts/upload_screenshots.py screenshots 1.0 APP_IPHONE_67
     artifacts:
       - screenshots/*.png
