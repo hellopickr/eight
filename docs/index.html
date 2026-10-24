@@ -216,7 +216,8 @@ h2 .hi svg{width:16px;height:16px}
 .swatches button{width:32px;height:32px;border-radius:50%;border:3px solid transparent}
 .swatches button[aria-pressed="true"]{border-color:var(--ink)}
 
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-weight:600;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;font-weight:600;font-size:14px;z-index:60;max-width:calc(100% - 32px);box-shadow:var(--shadow);display:flex;align-items:center;gap:14px}
+.toast-act{color:var(--bg);font-weight:800;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
 
 /* Savings progress */
 .prog{height:10px;border-radius:99px;background:var(--bg);overflow:hidden}
@@ -522,10 +523,12 @@ let tab = 'home';
 
 // ---------- Toast & sheets ----------
 let toastT;
-function toast(msg){
+function toast(msg, action){
   document.querySelector('.toast')?.remove();
-  const el=document.createElement('div'); el.className='toast'; el.setAttribute('role','status'); el.textContent=msg;
-  document.body.appendChild(el); clearTimeout(toastT); toastT=setTimeout(()=>el.remove(),2600);
+  const el=document.createElement('div'); el.className='toast'; el.setAttribute('role','status');
+  const span=document.createElement('span'); span.textContent=msg; el.appendChild(span);
+  if(action){ const b=document.createElement('button'); b.className='toast-act'; b.textContent=action.label; b.onclick=()=>{ el.remove(); action.run(); }; el.appendChild(b); }
+  document.body.appendChild(el); clearTimeout(toastT); toastT=setTimeout(()=>el.remove(), action?6000:2600);
 }
 let keyHandler = ()=>{};
 function openSheet(html, mount, label){
@@ -609,7 +612,11 @@ function txSheet(existing, preset){
     $('#xSave').onclick=()=>{
       const v=num(amt); if(!v) return;
       const note=$('#xNote').value.trim();
-      if(existing){ Object.assign(existing,{amount:v,type,cat:catId,date,note}); }
+      if(existing){
+        // Learn the category for auto-logged merchants, so the next payment there lands in the right place.
+        if(existing.source==='applepay' && existing.merchant && catId!==existing.cat){ S.merchantCats = S.merchantCats||{}; S.merchantCats[existing.merchant.toLowerCase()] = catId; }
+        Object.assign(existing,{amount:v,type,cat:catId,date,note});
+      }
       else { S.tx.push({id:uid(),amount:v,type,cat:catId,date,note,ts:Date.now()}); S.lastCat=catId; }
       save(); closeSheet(); render();
       const T=totals();
@@ -641,7 +648,7 @@ function txRow(t){
   const sub = (t.type==='in' ? 'Received' : c.name) + ' · ' + dayLabel(t.date);
   return `<button class="tx" data-tx="${t.id}">
     ${txIcon(t)}
-    <span class="meta"><span class="t1">${esc(t.note||c.name)} ${t.auto?'<span class="tag auto">Auto</span>':''}</span><span class="t2">${esc(sub)}</span></span>
+    <span class="meta"><span class="t1">${esc(t.note||c.name)} ${t.auto?'<span class="tag auto">Auto</span>':''}${t.source==='applepay'?'<span class="tag auto">Apple Pay</span>':''}</span><span class="t2">${esc(sub)}</span></span>
     <span class="amt num ${t.type==='in'?'in':''}">${t.type==='in'?'+':''}${fmt(t.amount)}</span>
   </button>`;
 }
@@ -807,6 +814,7 @@ function planView(){
 }
 
 function shortcutLink(){ return IS_NATIVE ? 'eight://add' : EIGHT_LINK + '#add'; }
+function payLinkPrefix(){ return IS_NATIVE ? 'eight://log?t=' : EIGHT_LINK + '#log='; }
 
 function profileView(){
   return `
@@ -826,6 +834,24 @@ function profileView(){
       </ol>
       ${IS_NATIVE?'':`<div class="callout">${ic('globe')}<span>Use Eight in Safari for this. iPhone keeps a separate copy of your data for apps added to the Home Screen, so the shortcut and a Home Screen icon would not share entries.</span></div>`}
       <button class="btn soft sm" id="tryQuick" style="align-self:flex-start">${ic('plus')} Try the quick-add screen</button>
+    </div>
+  </div>
+  <div class="section">
+    <h2><span class="hi">${ic('bolt')}</span>Log Apple Pay spending automatically</h2>
+    <div class="panel stack">
+      <p style="margin:0">Each time you pay with a card in Apple Wallet, Eight logs the amount and the shop for you. It all happens on your iPhone. Your bank details are never shared, and you can switch it off any time in the Shortcuts app.</p>
+      <ol class="guide">
+        <li>Open <b>Shortcuts</b>, go to the <b>Automation</b> tab and tap <b>+</b>.</li>
+        <li>Choose <b>Transaction</b>. Pick the cards to include, choose <b>Run Immediately</b>, and tap <b>Next</b>.</li>
+        <li>Tap <b>New Blank Automation</b>, then add a <b>Text</b> action. In it, insert <b>Shortcut Input › Amount</b>, type a <b>|</b> (vertical bar), then insert <b>Shortcut Input › Merchant</b>.</li>
+        <li>Add a <b>URL Encode</b> action. It uses the Text from step 3.</li>
+        <li>Add another <b>Text</b> action. Paste this, then insert <b>URL Encoded Text</b> at the end:
+          <div class="codebox" style="margin-top:6px"><code>${esc(payLinkPrefix())}</code><button class="btn soft sm" id="copyPay">Copy</button></div></li>
+        <li>Add an <b>Open URLs</b> action that uses that Text, then tap <b>Done</b>.</li>
+      </ol>
+      <div class="callout">${ic('sparkle')}<span>Eight guesses the category from the shop name. If it's wrong, tap the entry and change it, and Eight will remember that shop next time.</span></div>
+      <p class="muted" style="margin:0;font-size:13.5px">Only Apple Pay and Wallet card payments trigger this. Card payments made without your phone still need adding by hand. Your phone briefly opens Eight after each payment so it can save the entry.</p>
+      <button class="btn soft sm" id="tryPay" style="align-self:flex-start">${ic('bolt')} Try a sample payment</button>
     </div>
   </div>
   <div class="section">
@@ -925,6 +951,8 @@ function bindProfile(){
   const q=s=>root.querySelector(s);
   q('#copyLink').onclick=()=>copyText(shortcutLink());
   q('#tryQuick').onclick=()=>txSheet(null);
+  q('#copyPay').onclick=()=>copyText(payLinkPrefix());
+  q('#tryPay').onclick=()=>{ tab='home'; logPayment('18.50|Starbucks'); };
   q('#cur').onchange=e=>{S.currency=e.target.value;save();render();};
   root.querySelectorAll('[data-catrow]').forEach(r=>{
     const c=S.categories.find(x=>x.id===r.dataset.catrow);
@@ -1077,11 +1105,66 @@ function shotView(view){
   render(); window.scrollTo(0,0);
   if(view==='add'){ const food = S.categories.find(c=>c.name==='Food & drinks'); if(food) S.lastCat = food.id; txSheet(null, '45'); }
 }
+// ---------- Apple Pay auto-logging ----------
+// The Shortcuts "Transaction" automation opens eight://log?t=<amount>|<merchant>.
+// Amounts arrive formatted for the phone's region, e.g. "AED 1,234.50", "$5.99" or "1.234,50 €".
+function parseAmount(str){
+  let s = String(str||'').replace(/[^0-9.,]/g,'');
+  if(!s) return 0;
+  const lastDot = s.lastIndexOf('.'), lastComma = s.lastIndexOf(',');
+  if(lastDot>-1 && lastComma>-1){
+    if(lastComma>lastDot) s = s.replace(/\./g,'').replace(',', '.');
+    else s = s.replace(/,/g,'');
+  } else if(lastComma>-1){
+    s = /,\d{1,2}$/.test(s) ? s.replace(',', '.') : s.replace(/,/g,'');
+  } else if((s.match(/\./g)||[]).length>1){
+    s = s.replace(/\./g,'');
+  }
+  return num(s);
+}
+const MERCHANT_HINTS = [
+  [/coffee|caf[eé]|starbucks|costa|tim horton|dunkin|karak|bakery|restaurant|grill|pizza|burger|kfc|mcdonald|shawarma|talabat|deliveroo|careem food|noon food|zomato|\beats?\b/i, 'Food & drinks'],
+  [/carrefour|lulu|spinneys|waitrose|choithrams|union coop|supermarket|grocery|hypermarket|market|kibsons|instashop|tesco|sainsbury|aldi|lidl|whole foods|trader joe/i, 'Groceries'],
+  [/uber|careem|taxi|\brta\b|salik|\bnol\b|metro|enoc|adnoc|emarat|eppco|petrol|fuel|parking|lyft|\bbolt\b|\bshell\b/i, 'Transport'],
+  [/amazon|noon|namshi|ikea|zara|h&m|centrepoint|shein|apple store|sharaf|virgin|mall/i, 'Shopping'],
+  [/pharmacy|aster|boots|life pharmacy|clinic|hospital|medical|dental/i, 'Health'],
+  [/cinema|vox|reel cinema|netflix|spotify|playstation|steam|xbox|ticket|museum/i, 'Fun']
+];
+function guessCategory(merchant){
+  const m = String(merchant||'').trim();
+  const learned = S.merchantCats && S.merchantCats[m.toLowerCase()];
+  if(learned && S.categories.some(c=>c.id===learned)) return learned;
+  for(const [re, name] of MERCHANT_HINTS){ if(re.test(m)){ const c=S.categories.find(x=>x.name===name); if(c) return c.id; } }
+  const other = S.categories.find(c=>c.name==='Other');
+  return (other||S.categories[0]).id;
+}
+function logPayment(raw){
+  let text = String(raw||'');
+  try{ text = decodeURIComponent(text); }catch(e){}
+  try{ text = decodeURIComponent(text); }catch(e){} // tolerate double encoding
+  const bar = text.indexOf('|');
+  const amountPart = bar>-1 ? text.slice(0,bar) : text;
+  const merchant = (bar>-1 ? text.slice(bar+1) : '').trim().slice(0,60);
+  const amount = parseAmount(amountPart);
+  tab = 'home'; render();
+  if(!S.setup){ toast('Set up your budget first, then payments will log themselves'); return; }
+  if(!amount){ toast('Eight couldn’t read the amount from that payment'); return; }
+  // Shortcuts can fire twice for one payment. Ignore an identical payment within a minute.
+  const now = Date.now();
+  const dupe = S.tx.find(t=>t.source==='applepay' && t.amount===amount && (t.merchant||'')===merchant && now-(t.ts||0) < 60000);
+  if(dupe){ return; }
+  const tx = {id:uid(), type:'spend', amount, cat:guessCategory(merchant), date:ymd(today0()), note:merchant, merchant, source:'applepay', ts:now};
+  S.tx.push(tx); save(); render();
+  toast('Logged '+fmt(amount)+(merchant?' at '+merchant:'')+' · '+cat(tx.cat).name, {label:'Undo', run:()=>{ S.tx=S.tx.filter(t=>t.id!==tx.id); save(); render(); toast('Removed'); }});
+}
+
 function openFromLink(url){
   const u = String(url||'');
   const m = u.match(/^eight:\/\/shot\/([a-z]+)/);
   if(m){ shotView(m[1]); return; }
-  if(S.setup && /add/.test(u)){ tab='home'; render(); txSheet(null); }
+  const lg = u.match(/^eight:\/\/log\?t=(.*)$/);
+  if(lg){ logPayment(lg[1]); return; }
+  if(S.setup && /^eight:\/\/add/.test(u)){ tab='home'; render(); txSheet(null); }
 }
 async function boot(){
   if(NATIVE_PREFS){
@@ -1092,7 +1175,15 @@ async function boot(){
   if(['activity','plan','profile','home'].includes(h)) tab=h;
   render();
   if(h==='add' && S.setup) txSheet(null);
+  if(h.startsWith('log=')){ logPayment(h.slice(4)); try{ history.replaceState(null,'',location.pathname); }catch(e){} }
   if(window.__SHOT) shotView(String(window.__SHOT)); // App Store screenshots only
+  if(!IS_NATIVE){
+    window.addEventListener('hashchange', ()=>{
+      const hh=(location.hash||'').replace('#','');
+      if(hh.startsWith('log=')){ logPayment(hh.slice(4)); try{ history.replaceState(null,'',location.pathname); }catch(e){} }
+      else if(hh==='add' && S.setup){ tab='home'; render(); txSheet(null); }
+    });
+  }
   const App = IS_NATIVE && CAP.Plugins && CAP.Plugins.App;
   if(App){
     try{ App.addListener('appUrlOpen', e=>openFromLink(e && e.url)); }catch(e){}
