@@ -1092,6 +1092,7 @@ async function boot(){
   if(['activity','plan','profile','home'].includes(h)) tab=h;
   render();
   if(h==='add' && S.setup) txSheet(null);
+  if(window.__SHOT) shotView(String(window.__SHOT)); // App Store screenshots only
   const App = IS_NATIVE && CAP.Plugins && CAP.Plugins.App;
   if(App){
     try{ App.addListener('appUrlOpen', e=>openFromLink(e && e.url)); }catch(e){}
