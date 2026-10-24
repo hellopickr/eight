@@ -270,6 +270,7 @@ const CAP = window.Capacitor;
 const IS_NATIVE = !!(CAP && CAP.isNativePlatform && CAP.isNativePlatform());
 const NATIVE_PREFS = IS_NATIVE && CAP.Plugins && CAP.Plugins.Preferences;
 const KEY = 'eight.v1';
+let SHOT = false; // screenshot mode: sample data in memory only, never saved
 const PALETTE = ['#7c4dff','#e0559a','#f08c00','#12a594','#3b82f6','#e5484d','#5fa82e','#8e86a8','#b06cf0','#0ea5e9','#d97706','#14b8a6'];
 const CURRENCIES = ['AED','SAR','QAR','KWD','BHD','OMR','USD','EUR','GBP','INR','PKR','PHP','EGP','CAD','AUD','NZD','SGD','ZAR','NGN','JPY'];
 
@@ -396,6 +397,7 @@ function load(){
   return mem || freshState();
 }
 function save(){
+  if(SHOT) return;
   mem = S; const json = JSON.stringify(S);
   try{ localStorage.setItem(KEY, json); }catch(e){}
   if(NATIVE_PREFS){ try{ NATIVE_PREFS.set({key:KEY, value:json}); }catch(e){} }
@@ -489,22 +491,26 @@ const cat = id => S.categories.find(c=>c.id===id) || {name:'Other', color:'#8e86
 
 // ---------- Sample data ----------
 function loadSample(){
+  // Sample month: payday 17 days ago, so the screens show a month in progress.
   const s = freshState();
-  Object.assign(s,{setup:true, sample:true, currency:'AED', income:15000, payday:25,
+  const t = today0();
+  let start = new Date(t); start.setDate(start.getDate()-17);
+  if(start.getDate()>28){ start = new Date(start.getFullYear(), start.getMonth(), 28); }
+  const dayAt = off => { const d=new Date(start); d.setDate(d.getDate()+off); return d.getDate(); };
+  Object.assign(s,{setup:true, sample:true, currency:'AED', income:15000, payday:start.getDate(),
     savings:{goal:'Emergency fund', target:20000, months:12, monthly:1667, saved:6668}});
-  s.fixed = [['Rent',5500,1,true],['Phone',250,5,true],['Internet',389,12,false],['Gym',300,28,true],['Subscriptions',120,3,false],['Electricity & water',480,26,false]]
-    .map(([n,a,due,auto])=>({id:uid(),name:n,amount:a,due,auto}));
+  s.fixed = [['Rent',5500,0,true],['Phone',250,3,true],['Subscriptions',120,5,false],['Internet',389,11,false],['Electricity & water',480,22,false],['Gym',300,25,true]]
+    .map(([n,a,off,auto])=>({id:uid(),name:n,amount:a,due:dayAt(off),auto,off}));
   S = s;
   const p = period();
   const c = n => s.categories.find(x=>x.name===n).id;
-  const t = today0();
-  const items = [[0,'Food & drinks',24,'Karak & sandwich'],[0,'Transport',38,'Taxi to work'],[1,'Groceries',212.5,'Weekly shop'],[1,'Fun',95,'Cinema'],[2,'Food & drinks',68,'Dinner with Sara'],[3,'Shopping',149,'Running shoes'],[4,'Transport',120,'Fuel'],[5,'Health',45,'Pharmacy'],[6,'Food & drinks',31,'Coffee x2'],[8,'Groceries',184,'Carrefour'],[10,'Fun',220,'Desert safari'],[12,'Shopping',310,'Gift for mum'],[14,'Transport',120,'Fuel'],[17,'Food & drinks',142,'Brunch']];
+  const items = [[0,'Food & drinks',24,'Karak & sandwich'],[0,'Transport',38,'Taxi to work'],[1,'Groceries',212.5,'Weekly shop'],[1,'Fun',95,'Cinema'],[2,'Food & drinks',68,'Dinner with Sara'],[3,'Shopping',149,'Running shoes'],[4,'Transport',120,'Fuel'],[5,'Health',45,'Pharmacy'],[6,'Food & drinks',31,'Coffee x2'],[8,'Groceries',184,'Carrefour'],[10,'Fun',220,'Desert safari'],[12,'Shopping',310,'Gift for mum'],[14,'Transport',120,'Fuel'],[16,'Food & drinks',142,'Brunch']];
   s.tx = items.map(([ago,cn,amt,note])=>{ const d=new Date(t); d.setDate(d.getDate()-ago); return {id:uid(),type:'spend',amount:amt,cat:c(cn),note,date:ymd(d),ts:Date.now()-ago*864e5}; })
     .filter(x=>x.date>=p.s);
   s.tx.push({id:uid(),type:'in',amount:150,cat:c('Other'),note:'Sara paid me back',date:ymd(new Date(t.getFullYear(),t.getMonth(),t.getDate()-2)),ts:Date.now()-2*864e5});
   ensureAuto(p, ymd(t));
-  const subs = s.fixed.find(b=>b.name==='Subscriptions'); const sd=ymd(dueIn(subs,p)); if(sd<=ymd(t)) payBill(subs, sd, false);
-  const elec = s.fixed.find(b=>b.name==='Electricity & water'); const ed=ymd(dueIn(elec,p)); if(ed<=ymd(t)) payBill(elec, ed, false);
+  for(const b of s.fixed){ if(!b.auto && b.off<=17){ const d=ymd(dueIn(b,p)); if(d<=ymd(t)) payBill(b, d, false); } }
+  s.fixed.forEach(b=>{ delete b.off; });
   const prevStart = periodAt(new Date(p.start.getFullYear(),p.start.getMonth(),p.start.getDate()-1));
   s.wrap = {label: shortDate(prevStart.start)+' – '+shortDate(prevStart.end), leftover:1240.5, planned:1667};
   s.lastPeriod = p.s;
@@ -538,8 +544,8 @@ function confirmSheet(title, body, okLabel, onOk){
 }
 
 // ---------- Add / edit spending ----------
-function txSheet(existing){
-  let amt = existing ? String(existing.amount) : '';
+function txSheet(existing, preset){
+  let amt = existing ? String(existing.amount) : (preset||'');
   let type = existing ? existing.type : 'spend';
   let catId = existing ? existing.cat : (S.lastCat && S.categories.some(c=>c.id===S.lastCat) ? S.lastCat : S.categories[0]?.id);
   let date = existing ? existing.date : ymd(today0());
@@ -682,7 +688,7 @@ function homeView(){
     wrapHtml = `<div class="callout" style="margin-top:16px">${ic('coins')}<span>Payday in ${p.daysLeft} day${p.daysLeft===1?'':'s'}. You’re on track to have <b class="num">${fmt(T.free)}</b> left over to add to savings.</span></div>`;
   }
   return `
-  ${S.sample?'<div class="banner"><span>You’re looking at sample numbers.</span><button id="startReal">Set up mine</button></div>':''}
+  ${S.sample && !SHOT?'<div class="banner"><span>You’re looking at sample numbers.</span><button id="startReal">Set up mine</button></div>':''}
   <section class="hero" aria-label="Spent so far">
     ${coinDeco('deco')}
     <div class="h-label">Spent so far</div>
@@ -744,7 +750,7 @@ function goalLine(){
   return `${fmt(left)} to go. At ${fmt(s.monthly)} a month you’ll get there around ${d.toLocaleDateString(undefined,{month:'long',year:'numeric'})}.`;
 }
 
-function dueOptions(sel){ return Array.from({length:31},(_,i)=>`<option value="${i+1}" ${sel===i+1?'selected':''}>Due on the ${ordinal(i+1)}</option>`).join(''); }
+function dueOptions(sel){ return Array.from({length:31},(_,i)=>`<option value="${i+1}" ${sel===i+1?'selected':''}>Due ${ordinal(i+1)}</option>`).join(''); }
 function billEditor(b){
   return `<div class="bill-card" data-bill="${b.id}">
     <div class="r1"><span class="ico" style="background:var(--brand-soft);color:var(--brand-text)" data-bico>${ic(billIcon(b.name))}</span><input class="input" data-f="name" value="${esc(b.name)}" placeholder="Bill name" aria-label="Bill name"><button class="icon-btn" data-rm="${b.id}" aria-label="Remove ${esc(b.name||'bill')}">×</button></div>
@@ -843,7 +849,7 @@ function profileView(){
       <button class="btn danger sm" id="reset" style="align-self:flex-start">Erase everything and start over</button>
     </div>
   </div>
-  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:30px">${logoSvg('logo')}<p class="muted" style="font-size:13px;margin:0">Eight · free, private, on your device</p></div>`;
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:30px">${logoSvg('logo')}<p class="muted" style="font-size:13px;margin:0">Eight · free, private, on your device</p><p style="font-size:13px;margin:0;display:flex;gap:14px"><a class="link" href="https://hellopickr.github.io/eight/support.html" target="_blank" rel="noopener">Support</a><a class="link" href="https://hellopickr.github.io/eight/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p></div>`;
 }
 
 function iconPicker(c){
@@ -1062,8 +1068,20 @@ function bindOb(){
 function render(){ S.setup ? renderApp() : obView(); }
 
 // ---------- Boot ----------
+function shotView(view){
+  // Used only to make App Store screenshots. Nothing here is saved.
+  SHOT = true; closeSheet();
+  if(view==='welcome'){ S = freshState(); render(); window.scrollTo(0,0); return; }
+  if(!S.sample) loadSample();
+  tab = ['activity','plan','profile'].includes(view) ? view : 'home';
+  render(); window.scrollTo(0,0);
+  if(view==='add'){ const food = S.categories.find(c=>c.name==='Food & drinks'); if(food) S.lastCat = food.id; txSheet(null, '45'); }
+}
 function openFromLink(url){
-  if(S.setup && /add/.test(String(url||''))){ tab='home'; render(); txSheet(null); }
+  const u = String(url||'');
+  const m = u.match(/^eight:\/\/shot\/([a-z]+)/);
+  if(m){ shotView(m[1]); return; }
+  if(S.setup && /add/.test(u)){ tab='home'; render(); txSheet(null); }
 }
 async function boot(){
   if(NATIVE_PREFS){
