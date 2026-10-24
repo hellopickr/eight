@@ -175,11 +175,22 @@ workflows:
           printf 'app_identifier("%s")\nplatform("ios")\n' "$BUNDLE_ID" > fastlane/Deliverfile
           export FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 CI=true
           python3 - <<'PY'
-          import json, os
+          import base64, json, os, re
+          raw = os.environ["APP_STORE_CONNECT_PRIVATE_KEY"].strip().replace("\\n", "\n")
+          if "BEGIN" not in raw:
+              try:
+                  raw = base64.b64decode(raw).decode()
+              except Exception:
+                  pass
+          body = re.sub(r"-----[^-]+-----", "", raw)
+          body = re.sub(r"\s+", "", body)
+          lines = [body[i:i+64] for i in range(0, len(body), 64)]
+          pem = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
+          print("Key lines:", len(lines))
           json.dump({
             "key_id": os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"],
             "issuer_id": os.environ["APP_STORE_CONNECT_ISSUER_ID"],
-            "key": os.environ["APP_STORE_CONNECT_PRIVATE_KEY"],
+            "key": pem,
             "in_house": False
           }, open("asc_key.json", "w"))
           PY
