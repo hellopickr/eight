@@ -171,6 +171,9 @@ workflows:
           set -e
           mkdir -p fastlane/screenshots/en-US
           cp screenshots/*.png fastlane/screenshots/en-US/
+          # A Deliverfile stops deliver from asking setup questions on the build machine.
+          printf 'app_identifier("%s")\nplatform("ios")\n' "$BUNDLE_ID" > fastlane/Deliverfile
+          export FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1 CI=true
           python3 - <<'PY'
           import json, os
           json.dump({
