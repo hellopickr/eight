@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="Eight is a free, private budgeting app. Know what you can spend until payday.">
 <meta name="theme-color" content="#5b2bd6">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -44,7 +44,8 @@ img{max-width:100%}
   --good:#4cc596; --good-soft:#163428; --bad:#ff7a6b; --bad-soft:#3a1a1a; --scrim:rgba(0,0,0,.55); --shadow:0 10px 30px rgba(0,0,0,.4); color-scheme:dark }
 
 *{box-sizing:border-box}
-html,body{min-height:100%}
+html,body{min-height:100%;touch-action:manipulation}
+*{touch-action:manipulation}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
@@ -547,10 +548,11 @@ function confirmSheet(title, body, okLabel, onOk){
 }
 
 // ---------- Add / edit spending ----------
-function txSheet(existing, preset){
+function txSheet(existing, preset, opts){
+  opts = opts || {};
   let amt = existing ? String(existing.amount) : (preset||'');
   let type = existing ? existing.type : 'spend';
-  let catId = existing ? existing.cat : (S.lastCat && S.categories.some(c=>c.id===S.lastCat) ? S.lastCat : S.categories[0]?.id);
+  let catId = existing ? existing.cat : opts.cat ? opts.cat : (S.lastCat && S.categories.some(c=>c.id===S.lastCat) ? S.lastCat : S.categories[0]?.id);
   let date = existing ? existing.date : ymd(today0());
   const y = new Date(today0()); y.setDate(y.getDate()-1);
 
@@ -571,7 +573,7 @@ function txSheet(existing, preset){
     <button class="chip plain" data-d="${ymd(y)}">Yesterday</button>
     <input class="input" type="date" id="xDate" value="${date}" aria-label="Date">
   </div>
-  <input class="input" id="xNote" placeholder="Note (optional)" maxlength="60" value="${esc(existing?.note||'')}" style="margin-top:10px">
+  <input class="input" id="xNote" placeholder="Note (optional)" maxlength="60" value="${esc(existing?.note||opts.note||'')}" style="margin-top:10px">
   <div class="keypad">${['1','2','3','4','5','6','7','8','9','.','0','del'].map(k=>`<button class="key" data-k="${k}" aria-label="${k==='del'?'Delete':k}">${k==='del'?ic('del'):k}</button>`).join('')}</div>
   <button class="btn primary" id="xSave">Add</button>
   ${existing?'<button class="btn danger" id="xDel" style="width:100%;margin-top:10px">Delete this entry</button>':''}`;
@@ -616,6 +618,10 @@ function txSheet(existing, preset){
         // Learn the category for auto-logged merchants, so the next payment there lands in the right place.
         if(existing.source==='applepay' && existing.merchant && catId!==existing.cat){ S.merchantCats = S.merchantCats||{}; S.merchantCats[existing.merchant.toLowerCase()] = catId; }
         Object.assign(existing,{amount:v,type,cat:catId,date,note});
+      }
+      else if(opts.merchant){
+        S.tx.push({id:uid(),amount:v,type,cat:catId,date,note,merchant:opts.merchant,source:'applepay',ts:Date.now()});
+        S.merchantCats = S.merchantCats||{}; S.merchantCats[opts.merchant.toLowerCase()] = catId;
       }
       else { S.tx.push({id:uid(),amount:v,type,cat:catId,date,note,ts:Date.now()}); S.lastCat=catId; }
       save(); closeSheet(); render();
@@ -837,13 +843,14 @@ function profileView(){
     </div>
   </div>
   <div class="section">
-    <h2><span class="hi">${ic('bolt')}</span>Log Apple Pay spending automatically</h2>
+    <h2 id="payGuide"><span class="hi">${ic('bolt')}</span>Log Apple Pay spending automatically</h2>
     <div class="panel stack">
-      <p style="margin:0">Each time you pay with a card in Apple Wallet, Eight logs the amount and the shop for you. It all happens on your iPhone. Your bank details are never shared, and you can switch it off any time in the Shortcuts app.</p>
+      <p style="margin:0">Each time you pay with a card in Apple Wallet, Eight logs the amount and the shop for you. It all happens on your iPhone, and you can switch it off any time in the Shortcuts app.</p>
+      <div class="callout">${ic('lock')}<span>Eight never reads your notifications, messages or other apps. Only Apple Wallet's payment trigger sends Eight anything, and it sends just two things: the amount and the shop name.</span></div>
       <ol class="guide">
         <li>Open <b>Shortcuts</b>, go to the <b>Automation</b> tab and tap <b>+</b>.</li>
-        <li>Choose <b>Transaction</b>. Pick the cards to include, choose <b>Run Immediately</b>, and tap <b>Next</b>.</li>
-        <li>Tap <b>New Blank Automation</b>, then add a <b>Text</b> action. In it, insert <b>Shortcut Input › Amount</b>, type a <b>|</b> (vertical bar), then insert <b>Shortcut Input › Merchant</b>.</li>
+        <li>Choose <b>Wallet</b> (called <b>Transaction</b> on older iOS). Under <b>When I tap</b>, pick your Apple Pay cards and leave every category selected. Choose <b>Run Immediately</b>, switch off <b>Notify When Run</b>, and tap <b>Next</b>.</li>
+        <li>Tap <b>New Blank Automation</b>, then add a <b>Text</b> action. In it, tap <b>Shortcut Input</b> and choose <b>Amount</b>, type a <b>|</b> (vertical bar), then tap <b>Shortcut Input</b> again and choose <b>Merchant</b>. The Text should read <b>Amount | Merchant</b>.</li>
         <li>Add a <b>URL Encode</b> action. It uses the Text from step 3.</li>
         <li>Add another <b>Text</b> action. Paste this, then insert <b>URL Encoded Text</b> at the end:
           <div class="codebox" style="margin-top:6px"><code>${esc(payLinkPrefix())}</code><button class="btn soft sm" id="copyPay">Copy</button></div></li>
@@ -851,6 +858,7 @@ function profileView(){
       </ol>
       <div class="callout">${ic('sparkle')}<span>Eight guesses the category from the shop name. If it's wrong, tap the entry and change it, and Eight will remember that shop next time.</span></div>
       <p class="muted" style="margin:0;font-size:13.5px">Only Apple Pay and Wallet card payments trigger this. Card payments made without your phone still need adding by hand. Your phone briefly opens Eight after each payment so it can save the entry.</p>
+      <p class="muted" style="margin:0;font-size:13.5px">To test it, make a real Apple Pay payment. Running the automation by hand in Shortcuts sends no payment details, so Eight has nothing to log.</p>
       <button class="btn soft sm" id="tryPay" style="align-self:flex-start">${ic('bolt')} Try a sample payment</button>
     </div>
   </div>
@@ -1106,10 +1114,17 @@ function shotView(view){
   if(view==='add'){ const food = S.categories.find(c=>c.name==='Food & drinks'); if(food) S.lastCat = food.id; txSheet(null, '45'); }
 }
 // ---------- Apple Pay auto-logging ----------
-// The Shortcuts "Transaction" automation opens eight://log?t=<amount>|<merchant>.
+// The Shortcuts "Wallet" (formerly "Transaction") automation opens eight://log?t=<amount>|<merchant>.
 // Amounts arrive formatted for the phone's region, e.g. "AED 1,234.50", "$5.99" or "1.234,50 €".
 function parseAmount(str){
-  let s = String(str||'').replace(/[^0-9.,]/g,'');
+  let s = String(str||'')
+    .replace(/[\u0660-\u0669]/g, d=>String(d.charCodeAt(0)-0x0660))
+    .replace(/[\u06F0-\u06F9]/g, d=>String(d.charCodeAt(0)-0x06F0))
+    .replace(/\u066B/g,'.').replace(/[\u066C\u00A0\u202F]/g,'')
+    .replace(/[^0-9.,]/g,' ');
+  // Take the number only, so dots in currency signs such as "د.إ." or "Dhs." are ignored.
+  const m = s.match(/\d[\d.,]*\d|\d/);
+  s = m ? m[0] : '';
   if(!s) return 0;
   const lastDot = s.lastIndexOf('.'), lastComma = s.lastIndexOf(',');
   if(lastDot>-1 && lastComma>-1){
@@ -1148,7 +1163,17 @@ function logPayment(raw){
   const amount = parseAmount(amountPart);
   tab = 'home'; render();
   if(!S.setup){ toast('Set up your budget first, then payments will log themselves'); return; }
-  if(!amount){ toast('Eight couldn’t read the amount from that payment'); return; }
+  if(!amount){
+    const fix = {label:'How to fix', run:()=>{ tab='profile'; render(); const h=document.getElementById('payGuide'); if(h) h.scrollIntoView({block:'start'}); }};
+    if(merchant){
+      // The shop came through but not the amount: let the person type it, nothing is guessed.
+      txSheet(null, '', {note:merchant, merchant, cat:guessCategory(merchant)});
+      toast('Apple Pay sent the shop but no amount. Type it in, then check step 3 of the setup.', fix);
+    } else {
+      toast('Shortcuts sent Eight an empty payment. Running the automation by hand does this; a real Apple Pay payment fills it in.', fix);
+    }
+    return;
+  }
   // Shortcuts can fire twice for one payment. Ignore an identical payment within a minute.
   const now = Date.now();
   const dupe = S.tx.find(t=>t.source==='applepay' && t.amount===amount && (t.merchant||'')===merchant && now-(t.ts||0) < 60000);
