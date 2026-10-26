@@ -76,7 +76,7 @@ h2 .hi svg{width:16px;height:16px}
 .hero{position:relative;overflow:hidden;background:var(--hero);color:var(--hero-ink);border-radius:26px;padding:22px 22px 18px;box-shadow:var(--shadow)}
 .hero .deco{position:absolute;right:-34px;top:-30px;width:170px;height:auto;pointer-events:none;opacity:.9}
 .hero .h-label{font-size:13px;font-weight:600;color:var(--hero-dim);letter-spacing:.04em;text-transform:uppercase;position:relative}
-.hero .big{font-family:var(--f-display);font-weight:800;font-size:clamp(40px,12vw,54px);letter-spacing:-.03em;line-height:1.05;margin-top:6px;position:relative}
+.hero .big{font-family:var(--f-display);font-weight:800;font-size:clamp(40px,12vw,54px);letter-spacing:-.03em;line-height:1.05;margin-top:6px;position:relative;white-space:nowrap;max-width:100%}
 .hero .sub{margin-top:4px;color:var(--hero-dim);font-size:15px;position:relative}
 .bar{height:10px;border-radius:99px;background:var(--hero-track);margin-top:18px;overflow:hidden;position:relative;display:flex}
 .bar > i{display:block;height:100%}
@@ -126,7 +126,7 @@ h2 .hi svg{width:16px;height:16px}
 .wrap-card{border:1.5px solid var(--brand);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;margin-top:16px;background:var(--bg)}
 .wrap-card .top{display:flex;gap:12px;align-items:flex-start}
 .wrap-card .ico{background:var(--brand);color:var(--brand-ink)}
-.wrap-card .amt-big{font-family:var(--f-display);font-weight:800;font-size:30px;letter-spacing:-.02em;color:var(--brand-text);line-height:1.1}
+.wrap-card .amt-big{font-family:var(--f-display);font-weight:800;font-size:30px;letter-spacing:-.02em;color:var(--brand-text);line-height:1.1;white-space:nowrap;max-width:100%}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
 
 /* Breakdown */
@@ -199,11 +199,24 @@ h2 .hi svg{width:16px;height:16px}
 .seg{display:inline-flex;background:var(--surface);border-radius:12px;padding:3px}
 .seg button{padding:7px 14px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
-.amt-disp{font-family:var(--f-display);font-weight:800;font-size:46px;letter-spacing:-.03em;text-align:center;padding:10px 0 4px}
+.amt-disp{font-family:var(--f-display);font-weight:800;font-size:46px;letter-spacing:-.03em;text-align:center;padding:10px 0 4px;white-space:nowrap;overflow:hidden}
 .amt-disp .cur{font-size:22px;color:var(--muted);margin-right:6px;font-weight:700}
 .cur-pick{position:relative;display:inline-flex;align-items:center;gap:2px;font-size:22px;color:var(--muted);margin-right:8px;font-weight:700;vertical-align:middle;padding:4px 8px;border-radius:12px;background:var(--surface)}
 .cur-pick svg{width:16px;height:16px}
-.cur-pick select{position:absolute;inset:0;opacity:0;width:100%;font-size:16px}
+.cur-pick{font-family:inherit;border:0;cursor:pointer}
+.cur-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;cursor:pointer;color:var(--ink);font:inherit}
+.cur-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cur-btn svg{width:18px;height:18px;flex:none;color:var(--muted)}
+.cp-scrim{z-index:60}
+.cp{height:88%;display:flex;flex-direction:column;gap:10px}
+.cp .sheet-head h2{margin:0}
+.cp-list{overflow:auto;flex:1;margin:0 -4px;padding:0 4px}
+.cp-h{font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:14px 4px 6px}
+.cp-row{display:flex;align-items:center;gap:12px;width:100%;padding:12px 8px;border:0;background:none;border-bottom:1px solid var(--line);text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.cp-row b{min-width:44px;font-weight:800}
+.cp-row span{flex:1;color:var(--muted)}
+.cp-row svg{width:18px;height:18px;color:var(--accent)}
+.cp-row[aria-pressed="true"]{background:var(--surface);border-radius:12px}
 .conv{text-align:center;font-size:13px;color:var(--accent);font-weight:600;min-height:0}
 .conv:empty{display:none}
 .after{text-align:center;font-size:13.5px;color:var(--muted);min-height:20px;margin-bottom:10px}
@@ -448,14 +461,52 @@ let curNames = null;
 function curName(c){
   try{ curNames = curNames || new Intl.DisplayNames(undefined,{type:'currency'}); return curNames.of(c) || c; }catch(e){ return c; }
 }
-function curOptions(selected){
-  const opt = c => `<option value="${c}" ${c===selected?'selected':''}>${c} · ${esc(curName(c))}</option>`;
-  const recent = (S.recentCurs||[]).filter(c=>ALL_CURRENCIES.includes(c) && c!==S.currency);
-  const popular = CURRENCIES.filter(c=>!recent.includes(c));
-  return (recent.length?`<optgroup label="Recent">${recent.map(opt).join('')}</optgroup>`:'') +
-    `<optgroup label="Popular">${popular.map(opt).join('')}</optgroup>` +
-    `<optgroup label="All currencies">${ALL_CURRENCIES.filter(c=>!CURRENCIES.includes(c)).map(opt).join('')}</optgroup>`;
+// Extra words people search by (countries, nicknames).
+const CUR_ALIASES = {AED:'uae emirates dubai abu dhabi dirham dhs',SAR:'ksa saudi riyal',QAR:'qatar doha riyal',KWD:'kuwait dinar',BHD:'bahrain dinar',OMR:'oman rial',
+  USD:'us usa america united states dollar',EUR:'euro europe eurozone germany france italy spain netherlands',GBP:'uk britain england pound sterling',INR:'india rupee',PKR:'pakistan rupee',
+  PHP:'philippines peso',EGP:'egypt pound',JOD:'jordan dinar',LKR:'sri lanka rupee',BDT:'bangladesh taka',NPR:'nepal rupee',CAD:'canada dollar',AUD:'australia dollar',
+  NZD:'new zealand dollar',SGD:'singapore dollar',HKD:'hong kong dollar',CHF:'switzerland swiss franc',TRY:'turkey turkiye lira',MYR:'malaysia ringgit',THB:'thailand baht',
+  IDR:'indonesia rupiah bali',CNY:'china yuan renminbi rmb',JPY:'japan yen',KRW:'korea won',ZAR:'south africa rand',NGN:'nigeria naira',KES:'kenya shilling',MXN:'mexico peso',
+  BRL:'brazil real',LBP:'lebanon pound',MAD:'morocco dirham',TND:'tunisia dinar',IQD:'iraq dinar',SEK:'sweden krona',NOK:'norway krone',DKK:'denmark krone',PLN:'poland zloty',
+  CZK:'czech koruna',HUF:'hungary forint',RUB:'russia ruble',UAH:'ukraine hryvnia',GEL:'georgia lari',AZN:'azerbaijan manat',KZT:'kazakhstan tenge',VND:'vietnam dong',
+  TWD:'taiwan dollar',ILS:'israel shekel',ARS:'argentina peso',CLP:'chile peso',COP:'colombia peso',PEN:'peru sol',MVR:'maldives rufiyaa',ETB:'ethiopia birr',GHS:'ghana cedi'};
+// A searchable currency list that opens over whatever is on screen (including the add sheet).
+function pickCurrency(current, onPick){
+  const ov = document.createElement('div');
+  ov.className = 'scrim cp-scrim';
+  ov.innerHTML = `<div class="sheet cp" role="dialog" aria-modal="true" aria-label="Choose a currency">
+    <div class="sheet-head"><h2>Currency</h2><button class="btn ghost sm" id="cpX">Cancel</button></div>
+    <input class="input" id="cpQ" type="search" placeholder="Search by name, code or country" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Search currencies">
+    <div class="cp-list" id="cpList"></div></div>`;
+  document.body.appendChild(ov);
+  const close = ()=>{ ov.remove(); document.removeEventListener('keydown', onKey, true); };
+  const onKey = e=>{ if(e.key==='Escape'){ e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', onKey, true);
+  ov.addEventListener('click', e=>{ if(e.target===ov) close(); });
+  ov.querySelector('#cpX').onclick = close;
+  const list = ov.querySelector('#cpList');
+  const row = c => `<button class="cp-row" data-c="${c}" aria-pressed="${c===current}"><b>${c}</b><span>${esc(curName(c))}</span>${c===current?ic('check'):''}</button>`;
+  const group = (title, codes) => codes.length ? `<div class="cp-h">${esc(title)}</div>${codes.map(row).join('')}` : '';
+  function paint(q){
+    q = q.trim().toLowerCase();
+    if(!q){
+      const recent = (S.recentCurs||[]).filter(c=>ALL_CURRENCIES.includes(c));
+      list.innerHTML = group('Recent', recent) + group('Popular', CURRENCIES) + group('All currencies', ALL_CURRENCIES);
+    } else {
+      const hits = ALL_CURRENCIES.map(c=>{
+        const name = curName(c).toLowerCase(), alias = CUR_ALIASES[c]||'', code = c.toLowerCase();
+        const words = ' '+alias+' ';
+        const score = code===q ? 0 : words.includes(' '+q+' ') ? 1 : code.startsWith(q) ? 2 : name.startsWith(q) ? 3 : words.includes(' '+q) ? 4 : name.includes(q) ? 5 : alias.includes(q) ? 6 : -1;
+        return [c, score];
+      }).filter(x=>x[1]>=0).sort((a,b)=>a[1]-b[1] || a[0].localeCompare(b[0])).map(x=>x[0]);
+      list.innerHTML = hits.length ? group('Results', hits) : `<p class="muted" style="text-align:center;padding:24px 0">No currency matches “${esc(q)}”.</p>`;
+    }
+    list.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ close(); onPick(b.dataset.c); });
+  }
+  ov.querySelector('#cpQ').oninput = e=>paint(e.target.value);
+  paint('');
 }
+const curBtnLabel = c => `${c} · ${esc(curName(c))}`;
 function rememberCur(c){
   if(!c || c===S.currency) return;
   S.recentCurs = [c, ...(S.recentCurs||[]).filter(x=>x!==c)].slice(0,4);
@@ -620,6 +671,16 @@ function toast(msg, action){
   document.body.appendChild(el); clearTimeout(toastT); toastT=setTimeout(()=>el.remove(), action?6000:2600);
 }
 let keyHandler = ()=>{};
+// Shrink big numbers so they always fit on one line inside their box.
+function fitText(scope){
+  (scope||document).querySelectorAll('[data-fit]').forEach(el=>{
+    el.style.fontSize='';
+    const room = el.parentElement ? el.parentElement.clientWidth - (parseFloat(getComputedStyle(el.parentElement).paddingLeft)||0) - (parseFloat(getComputedStyle(el.parentElement).paddingRight)||0) : el.clientWidth;
+    let fs = parseFloat(getComputedStyle(el).fontSize), guard = 40;
+    while(el.scrollWidth > room + 1 && fs > 18 && guard--){ fs = Math.max(18, fs*0.94); el.style.fontSize = fs+'px'; }
+  });
+}
+window.addEventListener('resize', ()=>fitText());
 function openSheet(html, mount, label){
   closeSheet();
   const scrim=document.createElement('div'); scrim.className='scrim';
@@ -656,7 +717,7 @@ function txSheet(existing, preset, opts){
     </div>
     <span style="width:64px"></span>
   </div>
-  <div class="amt-disp num" aria-live="polite"><label class="cur-pick" title="Change currency"><span id="xCurTag">${esc(cur)}</span>${ic('chev')}<select id="xCur" aria-label="Currency">${curOptions(cur)}</select></label><span id="xAmt">0</span></div>
+  <div class="amt-disp num" aria-live="polite" data-fit><button class="cur-pick" id="xCur" aria-label="Currency: ${esc(cur)}. Change"><span id="xCurTag">${esc(cur)}</span>${ic('chev')}</button><span id="xAmt">0</span></div>
   <div class="conv num" id="xConv"></div>
   <div class="after num" id="xAfter"></div>
   <div class="cat-scroll" id="xCats">${S.categories.map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${c.id===catId}"><span style="color:${c.color}" class="cic">${ic(c.icon)}</span>${esc(c.name)}</button>`).join('')}</div>
@@ -676,6 +737,7 @@ function txSheet(existing, preset, opts){
       { const [ip, dp] = amt.split('.'); $('#xAmt').textContent = amt ? fmtPlain(+(ip||0)) + (dp!==undefined ? '.'+dp : '') : '0'; }
       const raw = num(amt), k = rateFor(cur), v = cur===S.currency ? raw : (k ? toHome(raw,k) : 0);
       $('#xCurTag').textContent = cur;
+      requestAnimationFrame(()=>fitText(sh));
       $('#xConv').textContent = cur===S.currency ? '' : !k ? 'No exchange rate for '+cur : (raw ? '≈ '+fmt(v)+' · ' : '')+'1 '+cur+' = '+fmtPlain(+k.toPrecision(4))+' '+S.currency;
       sh.querySelectorAll('[data-type]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.type===type));
       sh.querySelectorAll('[data-cat]').forEach(b=>{ const on=b.dataset.cat===catId; b.setAttribute('aria-pressed', on); b.querySelector('.cic').style.color = on ? 'inherit' : cat(b.dataset.cat).color; });
@@ -704,7 +766,7 @@ function txSheet(existing, preset, opts){
     sh.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{catId=b.dataset.cat;paint();});
     sh.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{date=b.dataset.d;paint();});
     $('#xDate').onchange=e=>{ if(e.target.value){date=e.target.value;paint();} };
-    $('#xCur').onchange=e=>{ cur=e.target.value; paint(); };
+    $('#xCur').onclick=()=>pickCurrency(cur, c=>{ cur=c; $('#xCur').setAttribute('aria-label','Currency: '+c+'. Change'); paint(); });
     $('#xClose').onclick=closeSheet;
     $('#xSave').onclick=()=>{
       const raw=num(amt), k=rateFor(cur), v = cur===S.currency ? raw : (k ? toHome(raw,k) : 0); if(!v) return;
@@ -787,7 +849,7 @@ function homeView(){
     wrapHtml = w.leftover>0 ? `
     <section class="wrap-card" aria-label="Month wrap-up">
       <div class="top">${`<span class="ico">${ic('coins')}</span>`}<div><div class="label">${esc(w.label)} is done</div><div style="margin-top:4px">You had this left over:</div></div></div>
-      <div class="amt-big num">${fmt(w.leftover)}</div>
+      <div class="amt-big num" data-fit>${fmt(w.leftover)}</div>
       <p class="muted" style="margin:0;font-size:14px">${w.planned>0?'Your planned '+esc(fmt(w.planned))+' already went into savings. ':''}Add the extra to savings too?</p>
       <div class="btnrow"><button class="btn primary auto sm" id="wAdd">${ic('plus')} Add ${esc(fmt(w.leftover))} to savings</button><button class="btn ghost sm" id="wSkip">Not this time</button></div>
     </section>` : `
@@ -803,18 +865,13 @@ function homeView(){
   <section class="hero" aria-label="Spent so far">
     ${coinDeco('deco')}
     <div class="h-label">Spent so far</div>
-    <div class="big num">${fmt(T.net>0?T.net:0)}</div>
+    <div class="big num" data-fit>${fmt(T.net>0?T.net:0)}</div>
     <div class="sub num">of your ${fmt(T.budget)} budget</div>
     <div class="bar" aria-hidden="true"><i class="spent" style="width:${spentPct}%"></i><i class="due" style="width:${duePct}%"></i></div>
     <div class="legend num"><span><b style="background:#fff"></b>Spent ${fmt(T.net>0?T.net:0)}</span><span><b style="background:rgba(255,255,255,.42)"></b>Bills still due ${fmt(T.billsDue)}</span></div>
     <div class="free-pill num">${ic(over?'clock':'wallet')}<span>${over ? 'Over budget by <b>'+fmt(-T.free,{noSign:true})+'</b>. Ease off until payday.' : '<b>'+fmt(T.free)+'</b> free to spend · about <b>'+fmt(T.perDay)+'</b> a day for '+p.daysLeft+' day'+(p.daysLeft===1?'':'s')}</span></div>
   </section>
   ${wrapHtml}
-
-  <div class="section">
-    <div class="section-head"><h2><span class="hi">${ic('receipt')}</span>Bills this month</h2><span class="muted num" style="font-size:14px;font-weight:600">${paidCount} of ${T.bills.length} paid</span></div>
-    ${T.bills.length?'<div class="list">'+T.bills.map(billRow).join('')+'</div>':'<div class="empty">No fixed bills yet. <button class="link" data-go="plan">Add your bills</button></div>'}
-  </div>
 
   <div class="section">
     <div class="section-head"><h2><span class="hi">${ic('target')}</span>How it adds up</h2><button class="link" data-go="plan">Edit plan</button></div>
@@ -831,6 +888,11 @@ function homeView(){
   <div class="section">
     <div class="section-head"><h2><span class="hi">${ic('list')}</span>Recent</h2>${S.tx.length?'<button class="link" data-go="activity">See all</button>':''}</div>
     ${recent.length?'<div class="list">'+recent.map(txRow).join('')+'</div>':'<div class="empty">Nothing spent yet this month.<br>Tap the purple + to add your first spend.</div>'}
+  </div>
+
+  <div class="section">
+    <div class="section-head"><h2><span class="hi">${ic('receipt')}</span>Bills this month</h2><span class="muted num" style="font-size:14px;font-weight:600">${paidCount} of ${T.bills.length} paid</span></div>
+    ${T.bills.length?'<div class="list">'+T.bills.map(billRow).join('')+'</div>':'<div class="empty">No fixed bills yet. <button class="link" data-go="plan">Add your bills</button></div>'}
   </div>`;
 }
 
@@ -970,7 +1032,7 @@ function profileView(){
   <div class="section">
     <h2><span class="hi">${ic('globe')}</span>Settings</h2>
     <div class="panel">
-      <div class="set-row"><label for="cur">Your currency</label><select class="input" id="cur" style="width:auto;max-width:60%">${curOptions(S.currency)}</select></div>
+      <div class="set-row"><label for="cur">Your currency</label><button class="input cur-btn" id="cur" style="width:auto;max-width:62%"><span>${curBtnLabel(S.currency)}</span>${ic('chev')}</button></div>
       <div class="set-row"><span><span style="display:block">Exchange rates</span><span class="muted" style="font-size:13px" id="ratesInfo">${esc(ratesLabel())}</span></span><button class="btn soft sm" id="ratesNow">Refresh</button></div>
       <p class="muted" style="margin:6px 0 0;font-size:13px">Tap the currency next to the amount when adding spending in another currency. Eight converts it to ${esc(S.currency)} and keeps the original amount. Apple Pay payments abroad are converted for you.</p>
     </div>
@@ -1090,7 +1152,7 @@ function bindProfile(){
   q('#tryQuick').onclick=()=>txSheet(null);
   q('#copyPay').onclick=()=>copyText(payLinkPrefix());
   q('#tryPay').onclick=()=>{ tab='home'; logPayment('18.50|Starbucks'); };
-  q('#cur').onchange=e=>changeHomeCurrency(e.target.value);
+  q('#cur').onclick=()=>pickCurrency(S.currency, c=>changeHomeCurrency(c));
   q('#ratesNow').onclick=async()=>{
     const b=q('#ratesNow'); b.disabled=true; b.textContent='Updating…';
     const ok = await refreshRates(true);
@@ -1150,7 +1212,7 @@ function obView(){
     body = `
     <h1>How much, and by when?</h1>
     <p class="lede">For your ${esc(S.savings.goal.toLowerCase())}.</p>
-    <label class="field"><span>Currency</span><select class="input" id="obCur">${curOptions(S.currency)}</select></label>
+    <label class="field"><span>Currency</span><button class="input cur-btn" id="obCur"><span>${curBtnLabel(S.currency)}</span>${ic('chev')}</button></label>
     <label class="field"><span>Target amount</span><div class="money"><em class="curTag">${esc(S.currency)}</em><input class="input num" id="obTarget" inputmode="decimal" value="${S.savings.target||''}" placeholder="10,000"></div></label>
     <label class="field"><span>In how many months?</span><select class="input" id="obMonths">${[3,6,9,12,18,24,36,48,60].map(m=>`<option value="${m}" ${S.savings.months===m?'selected':''}>${m} months</option>`).join('')}</select></label>
     <div class="callout num">${ic('coins')}<span id="obSaveLine"></span></div>
@@ -1160,7 +1222,7 @@ function obView(){
     body = `
     <h1>What do you earn each month?</h1>
     <p class="lede">Your take-home pay, after tax. Your budget resets every payday.</p>
-    ${S.savings.monthly?'':`<label class="field"><span>Currency</span><select class="input" id="obCur">${curOptions(S.currency)}</select></label>`}
+    ${S.savings.monthly?'':`<label class="field"><span>Currency</span><button class="input cur-btn" id="obCur"><span>${curBtnLabel(S.currency)}</span>${ic('chev')}</button></label>`}
     <label class="field"><span>Monthly income</span><div class="money"><em class="curTag">${esc(S.currency)}</em><input class="input num" id="obIncome" inputmode="decimal" value="${S.income||''}" placeholder="12,000"></div></label>
     <label class="field"><span>Payday</span><select class="input" id="obPayday">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${S.payday===i+1?'selected':''}>${ordinal(i+1)} of the month</option>`).join('')}</select></label>
     <div class="spacer"></div>
@@ -1211,7 +1273,7 @@ function bindOb(){
   }
   let paintSaveLine=null;
   const curSel=q('#obCur');
-  if(curSel) curSel.onchange=e=>{ S.currency=e.target.value; save(); root.querySelectorAll('.curTag').forEach(t=>t.textContent=S.currency); paintSaveLine&&paintSaveLine(); };
+  if(curSel) curSel.onclick=()=>pickCurrency(S.currency, c=>{ S.currency=c; save(); curSel.querySelector('span').innerHTML=curBtnLabel(c); root.querySelectorAll('.curTag').forEach(t=>t.textContent=S.currency); paintSaveLine&&paintSaveLine(); });
   if(st===2){
     paintSaveLine=()=>{ const s=S.savings; s.monthly = s.target? Math.ceil(s.target/s.months):0;
       q('#obSaveLine').textContent = s.target ? 'That’s '+fmt(s.monthly)+' a month, set aside before you spend.' : 'Enter a target to see your monthly amount.'; save(); };
@@ -1237,7 +1299,8 @@ function bindOb(){
   next.onclick=()=>{ S.setup=true; S.obStep=0; S.lastPeriod=period().s; save(); tab='home'; render(); window.scrollTo(0,0); };
 }
 
-function render(){ S.setup ? renderApp() : obView(); }
+function render(){ S.setup ? renderApp() : obView(); fitText(root); }
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>fitText());
 
 // ---------- Boot ----------
 function shotView(view){
