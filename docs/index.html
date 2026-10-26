@@ -201,6 +201,11 @@ h2 .hi svg{width:16px;height:16px}
 .seg button[aria-pressed="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.12)}
 .amt-disp{font-family:var(--f-display);font-weight:800;font-size:46px;letter-spacing:-.03em;text-align:center;padding:10px 0 4px}
 .amt-disp .cur{font-size:22px;color:var(--muted);margin-right:6px;font-weight:700}
+.cur-pick{position:relative;display:inline-flex;align-items:center;gap:2px;font-size:22px;color:var(--muted);margin-right:8px;font-weight:700;vertical-align:middle;padding:4px 8px;border-radius:12px;background:var(--surface)}
+.cur-pick svg{width:16px;height:16px}
+.cur-pick select{position:absolute;inset:0;opacity:0;width:100%;font-size:16px}
+.conv{text-align:center;font-size:13px;color:var(--accent);font-weight:600;min-height:0}
+.conv:empty{display:none}
 .after{text-align:center;font-size:13.5px;color:var(--muted);min-height:20px;margin-bottom:10px}
 .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
 .key{height:54px;border-radius:14px;background:var(--surface);font-family:var(--f-display);font-size:24px;font-weight:700;display:grid;place-items:center}
@@ -274,7 +279,8 @@ const NATIVE_PREFS = IS_NATIVE && CAP.Plugins && CAP.Plugins.Preferences;
 const KEY = 'eight.v1';
 let SHOT = false; // screenshot mode: sample data in memory only, never saved
 const PALETTE = ['#7c4dff','#e0559a','#f08c00','#12a594','#3b82f6','#e5484d','#5fa82e','#8e86a8','#b06cf0','#0ea5e9','#d97706','#14b8a6'];
-const CURRENCIES = ['AED','SAR','QAR','KWD','BHD','OMR','USD','EUR','GBP','INR','PKR','PHP','EGP','CAD','AUD','NZD','SGD','ZAR','NGN','JPY'];
+// Shown first in currency lists; every other currency follows under "All currencies".
+const CURRENCIES = ['AED','SAR','QAR','KWD','BHD','OMR','USD','EUR','GBP','INR','PKR','PHP','EGP','JOD','LKR','BDT','NPR','CAD','AUD','NZD','SGD','HKD','CHF','TRY','MYR','THB','IDR','CNY','JPY','KRW','ZAR','NGN','KES','MXN','BRL'];
 
 // ---------- Icons ----------
 const P = {
@@ -316,6 +322,7 @@ const P = {
   tap:'<rect x="6" y="2.5" width="12" height="19" rx="3"/><circle cx="12" cy="8.5" r="1.6"/><path d="M9 13.5c.8.8 1.8 1.2 3 1.2s2.2-.4 3-1.2M8 16.5c1.1 1 2.5 1.5 4 1.5s2.9-.5 4-1.5"/>',
   lock:'<rect x="4.5" y="10.5" width="15" height="10.5" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
   globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.5 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.5-3.5-8.5s1-5.9 3.5-8.5z"/>',
+  chev:'<path d="m7 10 5 5 5-5"/>',
   tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3" fill="currentColor"/>'
 };
 const PICKABLE = ['food','coffee','cart','car','bag','ticket','heart','receipt','home','plane','book','gift','phone','wifi','bolt','play','shield','dumbbell','paw','baby','coins','tag','sparkle','dots'];
@@ -414,6 +421,87 @@ function fmt(n, opts={}){
   return (n<0 && !opts.noSign ? '−' : '') + out;
 }
 function fmtPlain(n){ try{ return new Intl.NumberFormat(undefined,{maximumFractionDigits:2}).format(n);}catch(e){ return String(n);} }
+function fmtCur(n, cur){
+  const abs=Math.abs(n), dec=(Math.round(abs*100)%100)!==0 ? 2 : 0;
+  try{ return new Intl.NumberFormat(undefined,{style:'currency',currency:cur,minimumFractionDigits:dec,maximumFractionDigits:dec}).format(abs); }
+  catch(e){ return cur+' '+abs.toFixed(dec); }
+}
+
+// ---------- Currencies and exchange rates ----------
+// Rates are units of each currency per 1 US dollar. Eight downloads a public rates file
+// about once a day (no personal data is sent) and falls back to these built-in rates offline.
+const RATES_URLS = [
+  'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.min.json',
+  'https://latest.currency-api.pages.dev/v1/currencies/usd.min.json'
+];
+const RATES_KEY = 'eight.rates';
+const BUILTIN_RATES = {date:'2026-10-25', fetched:0, r:Object.fromEntries('AED:3.6725,AFN:64.9812,ALL:81.0132,AMD:361.06,ANG:1.79556,AOA:920.874,ARS:1525.34,AUD:1.42169,AWG:1.79,AZN:1.70146,BAM:1.74591,BBD:2,BDT:123.873,BGN:1.74591,BHD:0.376,BIF:2996.77,BMD:1,BND:1.27722,BOB:11.8597,BRL:4.98561,BSD:1,BTN:94.9402,BWP:13.8375,BYN:2.93416,BZD:2.01535,CAD:1.40037,CDF:2273.26,CHF:0.825013,CLP:995.289,CNY:6.67131,COP:3152.32,CRC:453.241,CUP:23.9826,CVE:98.4345,CZK:21.7193,DJF:178.334,DKK:6.67128,DOP:61.2349,DZD:135.079,EGP:55.2196,ERN:15,ETB:161.789,EUR:0.892668,FJD:2.24386,FKP:0.747811,GBP:0.747811,GEL:2.59564,GHS:11.6072,GIP:0.747811,GMD:74.5988,GNF:8848.11,GTQ:7.64191,GYD:209.432,HKD:7.84241,HNL:26.9217,HTG:131.904,HUF:327.362,IDR:18060.4,ILS:3.10531,INR:94.9402,IQD:1511.49,IRR:1.83237e+06,ISK:121.752,JMD:158.465,JOD:0.709,JPY:156.84,KES:129.809,KGS:87.4568,KHR:4080.57,KMF:439.164,KRW:1324.1,KWD:0.310506,KYD:0.820593,KZT:452.222,LAK:22413.8,LBP:90025.6,LKR:332.104,LRD:170.403,LSL:16.5652,LYD:6.40399,MAD:9.81454,MDL:18.0007,MGA:4568.92,MKD:54.9096,MMK:2099.7,MNT:3598.71,MOP:8.07769,MRU:40.081,MUR:47.16,MVR:15.4699,MWK:1733.14,MXN:18.6655,MYR:4.08598,MZN:63.8758,NAD:16.5652,NGN:1344.95,NIO:36.6999,NOK:9.34054,NPR:151.975,NZD:1.7541,OMR:0.384423,PAB:1,PEN:3.44194,PGK:4.34422,PHP:63.6091,PKR:276.755,PLN:3.93031,PYG:5773.76,QAR:3.64,RON:4.7749,RSD:105.031,RUB:80.3315,RWF:1476.25,SAR:3.75,SBD:8.05611,SCR:14.9242,SDG:600.182,SEK:9.93054,SGD:1.27722,SHP:0.747811,SOS:571.481,SRD:37.6356,SSP:5745.3,STN:21.9112,SVC:8.75,SYP:13002,SZL:16.5652,THB:33.6577,TJS:9.21157,TMT:3.5111,TND:2.99101,TOP:2.38619,TRY:49.7028,TTD:6.74505,TWD:32.5808,TZS:2641.76,UAH:45.1727,UGX:4425.56,USD:1,UYU:40.1025,UZS:11858.8,VES:884.454,VND:25831.8,VUV:118.756,WST:2.76779,XAF:585.552,XCD:2.70093,XOF:585.552,XPF:106.524,YER:236.193,ZAR:16.5652,ZMW:20.2007'.split(',').map(x=>{ const [k,v]=x.split(':'); return [k,+v]; }))};
+const ALL_CURRENCIES = Object.keys(BUILTIN_RATES.r).sort();
+let RATES = (()=>{ try{ const x=JSON.parse(localStorage.getItem(RATES_KEY)||'null'); if(x && x.r && x.r.USD===1 && x.date) return x; }catch(e){} return BUILTIN_RATES; })();
+function rate(from, to){
+  if(from===to) return 1;
+  const a=RATES.r[from]||BUILTIN_RATES.r[from], b=RATES.r[to]||BUILTIN_RATES.r[to];
+  return a&&b ? b/a : 0;
+}
+const toHome = (amount, k) => Math.round(amount*k*100)/100;
+let curNames = null;
+function curName(c){
+  try{ curNames = curNames || new Intl.DisplayNames(undefined,{type:'currency'}); return curNames.of(c) || c; }catch(e){ return c; }
+}
+function curOptions(selected){
+  const opt = c => `<option value="${c}" ${c===selected?'selected':''}>${c} · ${esc(curName(c))}</option>`;
+  const recent = (S.recentCurs||[]).filter(c=>ALL_CURRENCIES.includes(c) && c!==S.currency);
+  const popular = CURRENCIES.filter(c=>!recent.includes(c));
+  return (recent.length?`<optgroup label="Recent">${recent.map(opt).join('')}</optgroup>`:'') +
+    `<optgroup label="Popular">${popular.map(opt).join('')}</optgroup>` +
+    `<optgroup label="All currencies">${ALL_CURRENCIES.filter(c=>!CURRENCIES.includes(c)).map(opt).join('')}</optgroup>`;
+}
+function rememberCur(c){
+  if(!c || c===S.currency) return;
+  S.recentCurs = [c, ...(S.recentCurs||[]).filter(x=>x!==c)].slice(0,4);
+}
+function ratesLabel(){
+  const d = parseYmd(RATES.date);
+  const when = d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
+  return (RATES.fetched ? 'Rates from ' : 'Built-in rates from ') + when;
+}
+let ratesBusy = false;
+async function refreshRates(force){
+  if(SHOT || ratesBusy) return false;
+  if(!force && RATES.fetched && Date.now()-RATES.fetched < 20*3600e3) return false;
+  ratesBusy = true;
+  try{
+    for(const url of RATES_URLS){
+      try{
+        const ctl = new AbortController(); const tm = setTimeout(()=>ctl.abort(), 8000);
+        const res = await fetch(url, {signal:ctl.signal, cache:'no-store', credentials:'omit', referrerPolicy:'no-referrer'});
+        clearTimeout(tm);
+        if(!res.ok) continue;
+        const j = await res.json();
+        const src = j && j.usd; if(!src || !j.date) continue;
+        const r = {};
+        for(const c of ALL_CURRENCIES){ const v = +src[c.toLowerCase()]; if(v>0 && isFinite(v)) r[c]=v; }
+        if(r.USD!==1 || Object.keys(r).length < 100) continue;
+        RATES = {date:String(j.date).slice(0,10), fetched:Date.now(), r};
+        try{ localStorage.setItem(RATES_KEY, JSON.stringify(RATES)); }catch(e){}
+        return true;
+      }catch(e){}
+    }
+    return false;
+  } finally { ratesBusy = false; }
+}
+// Which currency a payment amount is in, e.g. "€12.50", "USD 5.99", "د.إ.‏ ١٢٫٥٠".
+const CUR_SIGNS = [['د.إ','AED'],['ر.س','SAR'],['ر.ق','QAR'],['د.ك','KWD'],['د.ب','BHD'],['ر.ع','OMR'],['ج.م','EGP'],['د.أ','JOD'],
+  ['US$','USD'],['CA$','CAD'],['C$','CAD'],['A$','AUD'],['AU$','AUD'],['NZ$','NZD'],['S$','SGD'],['HK$','HKD'],['R$','BRL'],['MX$','MXN'],
+  ['€','EUR'],['£','GBP'],['₹','INR'],['¥','JPY'],['₩','KRW'],['₱','PHP'],['₺','TRY'],['₦','NGN'],['₽','RUB'],['฿','THB'],['₫','VND'],['₪','ILS'],['₴','UAH'],['₸','KZT'],['₨','PKR'],
+  ['Dhs','AED'],['Dh','AED'],['SR','SAR'],['QR','QAR'],['KD','KWD'],['BD','BHD'],['RO','OMR']];
+function detectCurrency(str){
+  const s = String(str||'');
+  for(const code of (s.toUpperCase().match(/[A-Z]{3}/g)||[])) if(ALL_CURRENCIES.includes(code)) return code;
+  for(const [sign,code] of CUR_SIGNS) if(s.includes(sign)) return code;
+  if(s.includes('$')) return ['USD','CAD','AUD','NZD','SGD','HKD','MXN'].includes(S.currency) ? S.currency : 'USD';
+  return '';
+}
 
 // ---------- Budget maths ----------
 function periodAt(t){
@@ -550,7 +638,10 @@ function confirmSheet(title, body, okLabel, onOk){
 // ---------- Add / edit spending ----------
 function txSheet(existing, preset, opts){
   opts = opts || {};
-  let amt = existing ? String(existing.amount) : (preset||'');
+  let amt = existing ? String(existing.orig ? existing.orig.amount : existing.amount) : (preset||'');
+  let cur = existing ? (existing.orig ? existing.orig.cur : S.currency) : (opts.cur || S.currency);
+  // Keep the rate an entry was saved with, so editing it later doesn't shift its value.
+  const rateFor = c => (existing && existing.orig && existing.orig.cur===c) ? existing.orig.rate : rate(c, S.currency);
   let type = existing ? existing.type : 'spend';
   let catId = existing ? existing.cat : opts.cat ? opts.cat : (S.lastCat && S.categories.some(c=>c.id===S.lastCat) ? S.lastCat : S.categories[0]?.id);
   let date = existing ? existing.date : ymd(today0());
@@ -565,7 +656,8 @@ function txSheet(existing, preset, opts){
     </div>
     <span style="width:64px"></span>
   </div>
-  <div class="amt-disp num" aria-live="polite"><span class="cur">${esc(S.currency)}</span><span id="xAmt">0</span></div>
+  <div class="amt-disp num" aria-live="polite"><label class="cur-pick" title="Change currency"><span id="xCurTag">${esc(cur)}</span>${ic('chev')}<select id="xCur" aria-label="Currency">${curOptions(cur)}</select></label><span id="xAmt">0</span></div>
+  <div class="conv num" id="xConv"></div>
   <div class="after num" id="xAfter"></div>
   <div class="cat-scroll" id="xCats">${S.categories.map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${c.id===catId}"><span style="color:${c.color}" class="cic">${ic(c.icon)}</span>${esc(c.name)}</button>`).join('')}</div>
   <div class="daterow">
@@ -582,7 +674,9 @@ function txSheet(existing, preset, opts){
     const $ = s=>sh.querySelector(s);
     function paint(){
       { const [ip, dp] = amt.split('.'); $('#xAmt').textContent = amt ? fmtPlain(+(ip||0)) + (dp!==undefined ? '.'+dp : '') : '0'; }
-      const v = num(amt);
+      const raw = num(amt), k = rateFor(cur), v = cur===S.currency ? raw : (k ? toHome(raw,k) : 0);
+      $('#xCurTag').textContent = cur;
+      $('#xConv').textContent = cur===S.currency ? '' : !k ? 'No exchange rate for '+cur : (raw ? '≈ '+fmt(v)+' · ' : '')+'1 '+cur+' = '+fmtPlain(+k.toPrecision(4))+' '+S.currency;
       sh.querySelectorAll('[data-type]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.type===type));
       sh.querySelectorAll('[data-cat]').forEach(b=>{ const on=b.dataset.cat===catId; b.setAttribute('aria-pressed', on); b.querySelector('.cic').style.color = on ? 'inherit' : cat(b.dataset.cat).color; });
       sh.querySelectorAll('[data-d]').forEach(b=>b.setAttribute('aria-pressed', b.dataset.d===date));
@@ -610,23 +704,27 @@ function txSheet(existing, preset, opts){
     sh.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{catId=b.dataset.cat;paint();});
     sh.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{date=b.dataset.d;paint();});
     $('#xDate').onchange=e=>{ if(e.target.value){date=e.target.value;paint();} };
+    $('#xCur').onchange=e=>{ cur=e.target.value; paint(); };
     $('#xClose').onclick=closeSheet;
     $('#xSave').onclick=()=>{
-      const v=num(amt); if(!v) return;
+      const raw=num(amt), k=rateFor(cur), v = cur===S.currency ? raw : (k ? toHome(raw,k) : 0); if(!v) return;
+      const orig = cur===S.currency ? null : {amount:raw, cur, rate:k};
+      rememberCur(cur);
       const note=$('#xNote').value.trim();
       if(existing){
         // Learn the category for auto-logged merchants, so the next payment there lands in the right place.
         if(existing.source==='applepay' && existing.merchant && catId!==existing.cat){ S.merchantCats = S.merchantCats||{}; S.merchantCats[existing.merchant.toLowerCase()] = catId; }
         Object.assign(existing,{amount:v,type,cat:catId,date,note});
+        if(orig) existing.orig=orig; else delete existing.orig;
       }
       else if(opts.merchant){
-        S.tx.push({id:uid(),amount:v,type,cat:catId,date,note,merchant:opts.merchant,source:'applepay',ts:Date.now()});
+        S.tx.push({id:uid(),amount:v,type,cat:catId,date,note,merchant:opts.merchant,source:'applepay',ts:Date.now(),...(orig?{orig}:{})});
         S.merchantCats = S.merchantCats||{}; S.merchantCats[opts.merchant.toLowerCase()] = catId;
       }
-      else { S.tx.push({id:uid(),amount:v,type,cat:catId,date,note,ts:Date.now()}); S.lastCat=catId; }
+      else { S.tx.push({id:uid(),amount:v,type,cat:catId,date,note,ts:Date.now(),...(orig?{orig}:{})}); S.lastCat=catId; }
       save(); closeSheet(); render();
       const T=totals();
-      toast(existing ? 'Saved' : 'Added '+fmt(v)+' · '+(T.free<0?'over by '+fmt(-T.free,{noSign:true}):fmt(T.free)+' free to spend'));
+      toast(existing ? 'Saved' : 'Added '+fmt(v)+(orig?' ('+fmtCur(raw,cur)+')':'')+' · '+(T.free<0?'over by '+fmt(-T.free,{noSign:true}):fmt(T.free)+' free to spend'));
     };
     if(existing) $('#xDel').onclick=()=>confirmSheet('Delete this entry?', fmt(existing.amount)+' · '+(existing.note||cat(existing.cat).name)+(existing.billId?'. The bill will show as unpaid again.':''), 'Delete', ()=>{ S.tx=S.tx.filter(t=>t.id!==existing.id); save(); render(); toast('Deleted'); });
     keyHandler = e=>{
@@ -651,7 +749,7 @@ function txIcon(t){
 }
 function txRow(t){
   const c = cat(t.cat);
-  const sub = (t.type==='in' ? 'Received' : c.name) + ' · ' + dayLabel(t.date);
+  const sub = (t.type==='in' ? 'Received' : c.name) + ' · ' + dayLabel(t.date) + (t.orig ? ' · ' + fmtCur(t.orig.amount, t.orig.cur) : '');
   return `<button class="tx" data-tx="${t.id}">
     ${txIcon(t)}
     <span class="meta"><span class="t1">${esc(t.note||c.name)} ${t.auto?'<span class="tag auto">Auto</span>':''}${t.source==='applepay'?'<span class="tag auto">Apple Pay</span>':''}</span><span class="t2">${esc(sub)}</span></span>
@@ -872,13 +970,15 @@ function profileView(){
   <div class="section">
     <h2><span class="hi">${ic('globe')}</span>Settings</h2>
     <div class="panel">
-      <div class="set-row"><label for="cur">Currency</label><select class="input" id="cur" style="width:auto">${CURRENCIES.map(c=>`<option ${S.currency===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="set-row"><label for="cur">Your currency</label><select class="input" id="cur" style="width:auto;max-width:60%">${curOptions(S.currency)}</select></div>
+      <div class="set-row"><span><span style="display:block">Exchange rates</span><span class="muted" style="font-size:13px" id="ratesInfo">${esc(ratesLabel())}</span></span><button class="btn soft sm" id="ratesNow">Refresh</button></div>
+      <p class="muted" style="margin:6px 0 0;font-size:13px">Tap the currency next to the amount when adding spending in another currency. Eight converts it to ${esc(S.currency)} and keeps the original amount. Apple Pay payments abroad are converted for you.</p>
     </div>
   </div>
   <div class="section">
     <h2><span class="hi">${ic('lock')}</span>Your data</h2>
     <div class="panel stack">
-      <p class="muted" style="margin:0;font-size:14px">Everything stays on this device. Nothing is sent anywhere. Copy a backup now and then, and paste it to restore on a new phone.</p>
+      <p class="muted" style="margin:0;font-size:14px">Everything stays on this device. Nothing you enter is sent anywhere. Copy a backup now and then, and paste it to restore on a new phone.</p>
       <div class="btnrow"><button class="btn soft sm" id="bkCopy">Copy backup</button><button class="btn soft sm" id="bkRestore">Restore from backup</button></div>
       <button class="btn danger sm" id="reset" style="align-self:flex-start">Erase everything and start over</button>
     </div>
@@ -955,13 +1055,49 @@ async function copyText(text){
   }
 }
 
+function changeHomeCurrency(to){
+  const from = S.currency;
+  if(to===from) return;
+  const hasNumbers = S.tx.length || S.income || S.fixed.length || S.savings.target || S.savings.saved;
+  const k = rate(from, to);
+  const relabel = ()=>{ S.currency=to; save(); render(); toast('Currency set to '+to); };
+  if(!hasNumbers || !k){ relabel(); return; }
+  const r = n => Math.round((+n||0)*k*100)/100;
+  openSheet(`<div class="stack" style="padding:8px 0"><h2>Switch to ${esc(to)}?</h2>
+    <p class="muted" style="margin:0">Convert your income, bills, savings and entries from ${esc(from)} to ${esc(to)} at 1 ${esc(from)} = ${fmtPlain(+k.toPrecision(4))} ${esc(to)}? Or keep the numbers and only change the currency label.</p>
+    <button class="btn primary" id="hcConv">Convert my amounts</button>
+    <button class="btn soft" id="hcLabel">Only change the label</button>
+    <button class="btn ghost" id="hcNo">Cancel</button></div>`, sh=>{
+    sh.querySelector('#hcConv').onclick=()=>{
+      S.income=r(S.income);
+      S.fixed.forEach(b=>{ b.amount=r(b.amount); });
+      ['target','monthly','saved'].forEach(f=>{ S.savings[f]=r(S.savings[f]); });
+      if(S.wrap){ S.wrap.leftover=r(S.wrap.leftover); S.wrap.planned=r(S.wrap.planned); }
+      S.tx.forEach(t=>{
+        t.amount=r(t.amount);
+        if(t.orig){ if(t.orig.cur===to){ t.amount=t.orig.amount; delete t.orig; } else t.orig.rate=t.orig.rate*k; }
+        else t.orig={amount:Math.round(t.amount/k*100)/100, cur:from, rate:k};
+      });
+      S.currency=to; rememberCur(from); save(); closeSheet(); render(); toast('Converted to '+to);
+    };
+    sh.querySelector('#hcLabel').onclick=()=>{ closeSheet(); relabel(); };
+    sh.querySelector('#hcNo').onclick=()=>{ closeSheet(); render(); };
+  }, 'Change currency');
+}
 function bindProfile(){
   const q=s=>root.querySelector(s);
   q('#copyLink').onclick=()=>copyText(shortcutLink());
   q('#tryQuick').onclick=()=>txSheet(null);
   q('#copyPay').onclick=()=>copyText(payLinkPrefix());
   q('#tryPay').onclick=()=>{ tab='home'; logPayment('18.50|Starbucks'); };
-  q('#cur').onchange=e=>{S.currency=e.target.value;save();render();};
+  q('#cur').onchange=e=>changeHomeCurrency(e.target.value);
+  q('#ratesNow').onclick=async()=>{
+    const b=q('#ratesNow'); b.disabled=true; b.textContent='Updating…';
+    const ok = await refreshRates(true);
+    b.disabled=false; b.textContent='Refresh';
+    const info=q('#ratesInfo'); if(info) info.textContent=ratesLabel();
+    toast(ok ? 'Exchange rates updated' : 'Couldn’t reach the rates service. Using '+ratesLabel().toLowerCase()+'.');
+  };
   root.querySelectorAll('[data-catrow]').forEach(r=>{
     const c=S.categories.find(x=>x.id===r.dataset.catrow);
     r.querySelector('input').oninput=e=>{c.name=e.target.value||'Untitled';save();};
@@ -1014,7 +1150,7 @@ function obView(){
     body = `
     <h1>How much, and by when?</h1>
     <p class="lede">For your ${esc(S.savings.goal.toLowerCase())}.</p>
-    <label class="field"><span>Currency</span><select class="input" id="obCur">${CURRENCIES.map(c=>`<option ${S.currency===c?'selected':''}>${c}</option>`).join('')}</select></label>
+    <label class="field"><span>Currency</span><select class="input" id="obCur">${curOptions(S.currency)}</select></label>
     <label class="field"><span>Target amount</span><div class="money"><em class="curTag">${esc(S.currency)}</em><input class="input num" id="obTarget" inputmode="decimal" value="${S.savings.target||''}" placeholder="10,000"></div></label>
     <label class="field"><span>In how many months?</span><select class="input" id="obMonths">${[3,6,9,12,18,24,36,48,60].map(m=>`<option value="${m}" ${S.savings.months===m?'selected':''}>${m} months</option>`).join('')}</select></label>
     <div class="callout num">${ic('coins')}<span id="obSaveLine"></span></div>
@@ -1024,7 +1160,7 @@ function obView(){
     body = `
     <h1>What do you earn each month?</h1>
     <p class="lede">Your take-home pay, after tax. Your budget resets every payday.</p>
-    ${S.savings.monthly?'':`<label class="field"><span>Currency</span><select class="input" id="obCur">${CURRENCIES.map(c=>`<option ${S.currency===c?'selected':''}>${c}</option>`).join('')}</select></label>`}
+    ${S.savings.monthly?'':`<label class="field"><span>Currency</span><select class="input" id="obCur">${curOptions(S.currency)}</select></label>`}
     <label class="field"><span>Monthly income</span><div class="money"><em class="curTag">${esc(S.currency)}</em><input class="input num" id="obIncome" inputmode="decimal" value="${S.income||''}" placeholder="12,000"></div></label>
     <label class="field"><span>Payday</span><select class="input" id="obPayday">${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${S.payday===i+1?'selected':''}>${ordinal(i+1)} of the month</option>`).join('')}</select></label>
     <div class="spacer"></div>
@@ -1161,13 +1297,15 @@ function logPayment(raw){
   const amountPart = bar>-1 ? text.slice(0,bar) : text;
   const merchant = (bar>-1 ? text.slice(bar+1) : '').trim().slice(0,60);
   const amount = parseAmount(amountPart);
+  let cur = detectCurrency(amountPart) || S.currency;
+  if(cur!==S.currency && !rate(cur, S.currency)) cur = S.currency;
   tab = 'home'; render();
   if(!S.setup){ toast('Set up your budget first, then payments will log themselves'); return; }
   if(!amount){
     const fix = {label:'How to fix', run:()=>{ tab='profile'; render(); const h=document.getElementById('payGuide'); if(h) h.scrollIntoView({block:'start'}); }};
     if(merchant){
       // The shop came through but not the amount: let the person type it, nothing is guessed.
-      txSheet(null, '', {note:merchant, merchant, cat:guessCategory(merchant)});
+      txSheet(null, '', {note:merchant, merchant, cat:guessCategory(merchant), cur});
       toast('Apple Pay sent the shop but no amount. Type it in, then check step 3 of the setup.', fix);
     } else {
       toast('Shortcuts sent Eight an empty payment. Running the automation by hand does this; a real Apple Pay payment fills it in.', fix);
@@ -1176,11 +1314,14 @@ function logPayment(raw){
   }
   // Shortcuts can fire twice for one payment. Ignore an identical payment within a minute.
   const now = Date.now();
-  const dupe = S.tx.find(t=>t.source==='applepay' && t.amount===amount && (t.merchant||'')===merchant && now-(t.ts||0) < 60000);
+  const dupe = S.tx.find(t=>t.source==='applepay' && (t.orig?t.orig.amount:t.amount)===amount && (t.orig?t.orig.cur:S.currency)===cur && (t.merchant||'')===merchant && now-(t.ts||0) < 60000);
   if(dupe){ return; }
-  const tx = {id:uid(), type:'spend', amount, cat:guessCategory(merchant), date:ymd(today0()), note:merchant, merchant, source:'applepay', ts:now};
+  const k = rate(cur, S.currency);
+  const tx = {id:uid(), type:'spend', amount: cur===S.currency ? amount : toHome(amount,k), cat:guessCategory(merchant), date:ymd(today0()), note:merchant, merchant, source:'applepay', ts:now,
+    ...(cur===S.currency ? {} : {orig:{amount, cur, rate:k}})};
+  if(cur!==S.currency) rememberCur(cur);
   S.tx.push(tx); save(); render();
-  toast('Logged '+fmt(amount)+(merchant?' at '+merchant:'')+' · '+cat(tx.cat).name, {label:'Undo', run:()=>{ S.tx=S.tx.filter(t=>t.id!==tx.id); save(); render(); toast('Removed'); }});
+  toast('Logged '+fmt(tx.amount)+(tx.orig?' ('+fmtCur(amount,cur)+')':'')+(merchant?' at '+merchant:'')+' · '+cat(tx.cat).name, {label:'Undo', run:()=>{ S.tx=S.tx.filter(t=>t.id!==tx.id); save(); render(); toast('Removed'); }});
 }
 
 function openFromLink(url){
@@ -1202,6 +1343,8 @@ async function boot(){
   if(h==='add' && S.setup) txSheet(null);
   if(h.startsWith('log=')){ logPayment(h.slice(4)); try{ history.replaceState(null,'',location.pathname); }catch(e){} }
   if(window.__SHOT) shotView(String(window.__SHOT)); // App Store screenshots only
+  setTimeout(()=>{ refreshRates(false).then(ok=>{ if(ok && tab==='profile' && !document.querySelector('.scrim')) render(); }); }, 1500);
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') refreshRates(false); });
   if(!IS_NATIVE){
     window.addEventListener('hashchange', ()=>{
       const hh=(location.hash||'').replace('#','');
