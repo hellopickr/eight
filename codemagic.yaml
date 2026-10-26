@@ -14,7 +14,7 @@ definitions:
       name: Install packages
       script: npm install
     - &use_device_fonts
-      name: Use the iPhone's built-in fonts (the app makes no network requests)
+      name: Use the iPhone's built-in fonts (no Google Fonts requests)
       script: |
         sed -i '' '/fonts.googleapis.com/d' docs/index.html
         if grep -q "googleapis" docs/index.html; then echo "Google Fonts still referenced"; exit 1; fi
