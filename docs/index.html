@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-Z5Dp5PSCeHuvsQfHwCb1CDZ8pxzJO9o1Qplx597EXzY=' 'sha256-9W2M+jO9qv8SrWgneeOlaranr5Wu+zINhoknJFpF8q0='; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://latest.currency-api.pages.dev; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="Eight is a free, private budgeting app. Know what you can spend until payday.">
 <meta name="theme-color" content="#5b2bd6">
@@ -19,7 +20,6 @@ img{max-width:100%}
 [hidden]{display:none!important}
 </style>
 <title>Eight</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -393,6 +393,9 @@ const dim = (y,m) => new Date(y,m+1,0).getDate();
 const num = v => { const n=parseFloat(String(v).replace(/,/g,'')); return isFinite(n)&&n>0 ? Math.round(n*100)/100 : 0; };
 function ordinal(n){ const s=['th','st','nd','rd'], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
 
+// Built-in exchange rates (units per 1 US dollar), used offline and to check saved data.
+const BUILTIN_RATES = {date:'2026-10-25', fetched:0, r:Object.fromEntries('AED:3.6725,AFN:64.9812,ALL:81.0132,AMD:361.06,ANG:1.79556,AOA:920.874,ARS:1525.34,AUD:1.42169,AWG:1.79,AZN:1.70146,BAM:1.74591,BBD:2,BDT:123.873,BGN:1.74591,BHD:0.376,BIF:2996.77,BMD:1,BND:1.27722,BOB:11.8597,BRL:4.98561,BSD:1,BTN:94.9402,BWP:13.8375,BYN:2.93416,BZD:2.01535,CAD:1.40037,CDF:2273.26,CHF:0.825013,CLP:995.289,CNY:6.67131,COP:3152.32,CRC:453.241,CUP:23.9826,CVE:98.4345,CZK:21.7193,DJF:178.334,DKK:6.67128,DOP:61.2349,DZD:135.079,EGP:55.2196,ERN:15,ETB:161.789,EUR:0.892668,FJD:2.24386,FKP:0.747811,GBP:0.747811,GEL:2.59564,GHS:11.6072,GIP:0.747811,GMD:74.5988,GNF:8848.11,GTQ:7.64191,GYD:209.432,HKD:7.84241,HNL:26.9217,HTG:131.904,HUF:327.362,IDR:18060.4,ILS:3.10531,INR:94.9402,IQD:1511.49,IRR:1.83237e+06,ISK:121.752,JMD:158.465,JOD:0.709,JPY:156.84,KES:129.809,KGS:87.4568,KHR:4080.57,KMF:439.164,KRW:1324.1,KWD:0.310506,KYD:0.820593,KZT:452.222,LAK:22413.8,LBP:90025.6,LKR:332.104,LRD:170.403,LSL:16.5652,LYD:6.40399,MAD:9.81454,MDL:18.0007,MGA:4568.92,MKD:54.9096,MMK:2099.7,MNT:3598.71,MOP:8.07769,MRU:40.081,MUR:47.16,MVR:15.4699,MWK:1733.14,MXN:18.6655,MYR:4.08598,MZN:63.8758,NAD:16.5652,NGN:1344.95,NIO:36.6999,NOK:9.34054,NPR:151.975,NZD:1.7541,OMR:0.384423,PAB:1,PEN:3.44194,PGK:4.34422,PHP:63.6091,PKR:276.755,PLN:3.93031,PYG:5773.76,QAR:3.64,RON:4.7749,RSD:105.031,RUB:80.3315,RWF:1476.25,SAR:3.75,SBD:8.05611,SCR:14.9242,SDG:600.182,SEK:9.93054,SGD:1.27722,SHP:0.747811,SOS:571.481,SRD:37.6356,SSP:5745.3,STN:21.9112,SVC:8.75,SYP:13002,SZL:16.5652,THB:33.6577,TJS:9.21157,TMT:3.5111,TND:2.99101,TOP:2.38619,TRY:49.7028,TTD:6.74505,TWD:32.5808,TZS:2641.76,UAH:45.1727,UGX:4425.56,USD:1,UYU:40.1025,UZS:11858.8,VES:884.454,VND:25831.8,VUV:118.756,WST:2.76779,XAF:585.552,XCD:2.70093,XOF:585.552,XPF:106.524,YER:236.193,ZAR:16.5652,ZMW:20.2007'.split(',').map(x=>{ const [k,v]=x.split(':'); return [k,+v]; }))};
+
 function defaultCats(){
   return [['Food & drinks','food'],['Groceries','cart'],['Transport','car'],['Shopping','bag'],['Fun','ticket'],['Health','heart'],['Bills','receipt','bills'],['Other','dots']]
     .map(([n,icon,sys],i)=>({id:uid(), name:n, icon, color:PALETTE[i], ...(sys?{sys}:{})}));
@@ -409,8 +412,64 @@ function migrate(s){
     s.savings.saved = s.savings.saved || 0;
     s.lastPeriod=''; s.wrap=null; s.v=2;
   }
+  s = sanitize(s);
   if(!s.categories.some(c=>c.sys==='bills')) s.categories.splice(Math.max(0,s.categories.length-1),0,{id:uid(),name:'Bills',icon:'receipt',color:PALETTE[6],sys:'bills'});
   return s;
+}
+// Security: saved data and pasted backups are checked field by field, so a crafted backup
+// can never carry code or broken values into the app. Anything unexpected is reset or dropped.
+function sanitize(s){
+  const MAX = 1e10;
+  const str = (v, n=80) => (typeof v==='string' ? v : v==null ? '' : String(v)).replace(/[\u0000-\u001f\u007f]/g,'').slice(0,n);
+  const money = v => { const n=+v; return isFinite(n) && n>=0 ? Math.min(Math.round(n*100)/100, MAX) : 0; };
+  const int = (v,lo,hi,d) => { const n=Math.round(+v); return isFinite(n) ? Math.min(hi,Math.max(lo,n)) : d; };
+  const okId = v => typeof v==='string' && /^[A-Za-z0-9_-]{1,40}$/.test(v);
+  const okDate = v => typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(parseYmd(v));
+  const okColor = v => typeof v==='string' && /^#[0-9a-fA-F]{6}$/.test(v);
+  const okCur = v => typeof v==='string' && /^[A-Z]{3}$/.test(v) && !!BUILTIN_RATES.r[v];
+  const obj = v => v && typeof v==='object' && !Array.isArray(v) ? v : {};
+  const out = freshState();
+  out.v = 2;
+  out.setup = s.setup===true; out.sample = s.sample===true;
+  out.obStep = int(s.obStep,0,10,0);
+  out.currency = okCur(s.currency) ? s.currency : 'AED';
+  out.income = money(s.income);
+  out.payday = int(s.payday,1,31,1);
+  const sv = obj(s.savings);
+  out.savings = {goal:str(sv.goal,40), target:money(sv.target), months:int(sv.months,1,600,12), monthly:money(sv.monthly), saved:money(sv.saved)};
+  const idMap = {};
+  const fixId = v => { if(okId(v)) return v; const k=String(v); return idMap[k] || (idMap[k]=uid()); };
+  const cats = (Array.isArray(s.categories)?s.categories:[]).slice(0,60).filter(c=>c&&typeof c==='object').map((c,i)=>({
+    id:fixId(c.id), name:str(c.name,40)||'Untitled', icon: (typeof c.icon==='string' && Object.prototype.hasOwnProperty.call(P,c.icon)) ? c.icon : 'dots',
+    color: okColor(c.color) ? c.color : PALETTE[i%PALETTE.length], ...(c.sys==='bills'?{sys:'bills'}:{})
+  }));
+  out.categories = cats.length ? cats : defaultCats();
+  const catIds = new Set(out.categories.map(c=>c.id));
+  const fallbackCat = (out.categories.find(c=>c.name==='Other')||out.categories[0]).id;
+  out.fixed = (Array.isArray(s.fixed)?s.fixed:[]).slice(0,200).filter(b=>b&&typeof b==='object').map(b=>({
+    id:fixId(b.id), name:str(b.name,60), amount:money(b.amount), due:int(b.due,1,31,1), auto:b.auto===true, ...(b.off===true?{off:true}:{})
+  }));
+  const billIds = new Set(out.fixed.map(b=>b.id));
+  out.tx = (Array.isArray(s.tx)?s.tx:[]).slice(0,50000).filter(t=>t&&typeof t==='object' && okDate(t.date) && money(t.amount)>0).map(t=>{
+    const cat = fixId(t.cat);
+    const x = {id:fixId(t.id), type: t.type==='in'?'in':'spend', amount:money(t.amount), cat: catIds.has(cat)?cat:fallbackCat, date:t.date, note:str(t.note,60), ts: isFinite(+t.ts)?+t.ts:0};
+    if(t.auto===true) x.auto=true;
+    if(t.billId!=null){ const bid=fixId(t.billId); if(billIds.has(bid)) x.billId=bid; }
+    if(t.source==='applepay') x.source='applepay';
+    if(t.merchant!=null) x.merchant=str(t.merchant,60);
+    const o=obj(t.orig);
+    if(okCur(o.cur) && money(o.amount)>0 && +o.rate>0 && isFinite(+o.rate)) x.orig={amount:money(o.amount), cur:o.cur, rate:+o.rate};
+    return x;
+  });
+  out.lastCat = okId(s.lastCat) && catIds.has(s.lastCat) ? s.lastCat : undefined;
+  out.lastPeriod = okDate(s.lastPeriod) ? s.lastPeriod : '';
+  const w = s.wrap && typeof s.wrap==='object' ? s.wrap : null;
+  out.wrap = w ? {label:str(w.label,60), leftover:money(w.leftover), planned:money(w.planned)} : null;
+  out.recentCurs = (Array.isArray(s.recentCurs)?s.recentCurs:[]).filter(okCur).slice(0,4);
+  out.merchantCats = {};
+  const mc = obj(s.merchantCats);
+  for(const k of Object.keys(mc).slice(0,2000)){ const v=mc[k]; if(okId(v) && catIds.has(v)) out.merchantCats[str(k,60).toLowerCase()] = v; }
+  return out;
 }
 
 let mem = null;
@@ -448,9 +507,12 @@ const RATES_URLS = [
   'https://latest.currency-api.pages.dev/v1/currencies/usd.min.json'
 ];
 const RATES_KEY = 'eight.rates';
-const BUILTIN_RATES = {date:'2026-10-25', fetched:0, r:Object.fromEntries('AED:3.6725,AFN:64.9812,ALL:81.0132,AMD:361.06,ANG:1.79556,AOA:920.874,ARS:1525.34,AUD:1.42169,AWG:1.79,AZN:1.70146,BAM:1.74591,BBD:2,BDT:123.873,BGN:1.74591,BHD:0.376,BIF:2996.77,BMD:1,BND:1.27722,BOB:11.8597,BRL:4.98561,BSD:1,BTN:94.9402,BWP:13.8375,BYN:2.93416,BZD:2.01535,CAD:1.40037,CDF:2273.26,CHF:0.825013,CLP:995.289,CNY:6.67131,COP:3152.32,CRC:453.241,CUP:23.9826,CVE:98.4345,CZK:21.7193,DJF:178.334,DKK:6.67128,DOP:61.2349,DZD:135.079,EGP:55.2196,ERN:15,ETB:161.789,EUR:0.892668,FJD:2.24386,FKP:0.747811,GBP:0.747811,GEL:2.59564,GHS:11.6072,GIP:0.747811,GMD:74.5988,GNF:8848.11,GTQ:7.64191,GYD:209.432,HKD:7.84241,HNL:26.9217,HTG:131.904,HUF:327.362,IDR:18060.4,ILS:3.10531,INR:94.9402,IQD:1511.49,IRR:1.83237e+06,ISK:121.752,JMD:158.465,JOD:0.709,JPY:156.84,KES:129.809,KGS:87.4568,KHR:4080.57,KMF:439.164,KRW:1324.1,KWD:0.310506,KYD:0.820593,KZT:452.222,LAK:22413.8,LBP:90025.6,LKR:332.104,LRD:170.403,LSL:16.5652,LYD:6.40399,MAD:9.81454,MDL:18.0007,MGA:4568.92,MKD:54.9096,MMK:2099.7,MNT:3598.71,MOP:8.07769,MRU:40.081,MUR:47.16,MVR:15.4699,MWK:1733.14,MXN:18.6655,MYR:4.08598,MZN:63.8758,NAD:16.5652,NGN:1344.95,NIO:36.6999,NOK:9.34054,NPR:151.975,NZD:1.7541,OMR:0.384423,PAB:1,PEN:3.44194,PGK:4.34422,PHP:63.6091,PKR:276.755,PLN:3.93031,PYG:5773.76,QAR:3.64,RON:4.7749,RSD:105.031,RUB:80.3315,RWF:1476.25,SAR:3.75,SBD:8.05611,SCR:14.9242,SDG:600.182,SEK:9.93054,SGD:1.27722,SHP:0.747811,SOS:571.481,SRD:37.6356,SSP:5745.3,STN:21.9112,SVC:8.75,SYP:13002,SZL:16.5652,THB:33.6577,TJS:9.21157,TMT:3.5111,TND:2.99101,TOP:2.38619,TRY:49.7028,TTD:6.74505,TWD:32.5808,TZS:2641.76,UAH:45.1727,UGX:4425.56,USD:1,UYU:40.1025,UZS:11858.8,VES:884.454,VND:25831.8,VUV:118.756,WST:2.76779,XAF:585.552,XCD:2.70093,XOF:585.552,XPF:106.524,YER:236.193,ZAR:16.5652,ZMW:20.2007'.split(',').map(x=>{ const [k,v]=x.split(':'); return [k,+v]; }))};
 const ALL_CURRENCIES = Object.keys(BUILTIN_RATES.r).sort();
-let RATES = (()=>{ try{ const x=JSON.parse(localStorage.getItem(RATES_KEY)||'null'); if(x && x.r && x.r.USD===1 && x.date) return x; }catch(e){} return BUILTIN_RATES; })();
+let RATES = (()=>{ try{ const x=JSON.parse(localStorage.getItem(RATES_KEY)||'null');
+  if(x && x.r && typeof x.r==='object' && x.r.USD===1 && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date))){
+    const r={}; for(const c of ALL_CURRENCIES){ const v=+x.r[c], b=BUILTIN_RATES.r[c]; if(v>0 && isFinite(v) && v/b<10 && b/v<10) r[c]=v; }
+    return {date:x.date, fetched:+x.fetched||0, r};
+  } }catch(e){} return BUILTIN_RATES; })();
 function rate(from, to){
   if(from===to) return 1;
   const a=RATES.r[from]||BUILTIN_RATES.r[from], b=RATES.r[to]||BUILTIN_RATES.r[to];
@@ -531,7 +593,9 @@ async function refreshRates(force){
         const j = await res.json();
         const src = j && j.usd; if(!src || !j.date) continue;
         const r = {};
-        for(const c of ALL_CURRENCIES){ const v = +src[c.toLowerCase()]; if(v>0 && isFinite(v)) r[c]=v; }
+        // Only plain numbers within 10x of the built-in rate are accepted, so a broken or tampered
+        // rates file can't produce absurd conversions. Anything else falls back to the built-in rate.
+        for(const c of ALL_CURRENCIES){ const v = +src[c.toLowerCase()], b = BUILTIN_RATES.r[c]; if(v>0 && isFinite(v) && v/b < 10 && b/v < 10) r[c]=v; }
         if(r.USD!==1 || Object.keys(r).length < 100) continue;
         RATES = {date:String(j.date).slice(0,10), fetched:Date.now(), r};
         try{ localStorage.setItem(RATES_KEY, JSON.stringify(RATES)); }catch(e){}
@@ -571,6 +635,9 @@ function dueIn(bill, p){
   let y=p.start.getFullYear(), m=p.start.getMonth();
   let d=new Date(y,m,Math.min(bill.due||1,dim(y,m)));
   if(d<p.start){ m++; if(m>11){m=0;y++;} d=new Date(y,m,Math.min(bill.due||1,dim(y,m))); }
+  // A short pay period (e.g. payday on the 31st in February) can end before the bill's day comes round.
+  // Every bill still belongs to every period, so it counts on the period's last day.
+  if(d>p.end) d=new Date(p.end);
   return d;
 }
 const billTx = (bill,p) => S.tx.find(t=>t.billId===bill.id && t.date>=p.s && t.date<=p.e);
@@ -1040,12 +1107,12 @@ function profileView(){
   <div class="section">
     <h2><span class="hi">${ic('lock')}</span>Your data</h2>
     <div class="panel stack">
-      <p class="muted" style="margin:0;font-size:14px">Everything stays on this device. Nothing you enter is sent anywhere. Copy a backup now and then, and paste it to restore on a new phone.</p>
+      <p class="muted" style="margin:0;font-size:14px">Everything stays on this device. Nothing you enter is sent anywhere. Copy a backup now and then, and paste it to restore on a new phone. A backup contains your budget details, so keep it private.</p>
       <div class="btnrow"><button class="btn soft sm" id="bkCopy">Copy backup</button><button class="btn soft sm" id="bkRestore">Restore from backup</button></div>
       <button class="btn danger sm" id="reset" style="align-self:flex-start">Erase everything and start over</button>
     </div>
   </div>
-  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:30px">${logoSvg('logo')}<p class="muted" style="font-size:13px;margin:0">Eight · free, private, on your device</p><p style="font-size:13px;margin:0;display:flex;gap:14px"><a class="link" href="https://hellopickr.github.io/eight/support.html" target="_blank" rel="noopener">Support</a><a class="link" href="https://hellopickr.github.io/eight/privacy.html" target="_blank" rel="noopener">Privacy policy</a></p></div>`;
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:30px">${logoSvg('logo')}<p class="muted" style="font-size:13px;margin:0">Eight · free, private, on your device</p><p class="muted" style="font-size:12px;margin:0 16px;text-align:center;max-width:340px">Eight is a planning aid, not financial advice. Amounts and exchange rates are estimates; check important figures with your bank.</p><p style="font-size:13px;margin:0;display:flex;gap:14px;flex-wrap:wrap;justify-content:center"><a class="link" href="https://hellopickr.github.io/eight/support.html" target="_blank" rel="noopener noreferrer">Support</a><a class="link" href="https://hellopickr.github.io/eight/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a><a class="link" href="https://hellopickr.github.io/eight/terms.html" target="_blank" rel="noopener noreferrer">Terms of use</a></p></div>`;
 }
 
 function iconPicker(c){
@@ -1174,10 +1241,10 @@ function bindProfile(){
   });
   q('#addCat').onclick=()=>{ const c={id:uid(),name:'New category',icon:'tag',color:PALETTE[S.categories.length%PALETTE.length]}; S.categories.push(c); save(); render(); root.querySelector('[data-catrow="'+c.id+'"] input')?.select(); };
   q('#bkCopy').onclick=()=>copyText(JSON.stringify(S));
-  q('#bkRestore').onclick=()=>openSheet('<div class="stack"><h2>Restore from backup</h2><p class="muted" style="margin:0">Paste a backup you copied from Eight. It replaces what is on this device.</p><textarea class="input" id="rsTa" rows="6" placeholder="Paste backup here"></textarea><p id="rsErr" class="neg" style="margin:0" hidden></p><button class="btn primary" id="rsGo">Restore</button><button class="btn ghost" id="rsNo">Cancel</button></div>', sh=>{
+  q('#bkRestore').onclick=()=>openSheet('<div class="stack"><h2>Restore from backup</h2><p class="muted" style="margin:0">Paste a backup you copied from Eight yourself. It replaces what is on this device. Never paste a backup someone else sent you.</p><textarea class="input" id="rsTa" rows="6" placeholder="Paste backup here"></textarea><p id="rsErr" class="neg" style="margin:0" hidden></p><button class="btn primary" id="rsGo">Restore</button><button class="btn ghost" id="rsNo">Cancel</button></div>', sh=>{
     sh.querySelector('#rsNo').onclick=closeSheet;
     sh.querySelector('#rsGo').onclick=()=>{
-      try{ const d=JSON.parse(sh.querySelector('#rsTa').value); if(!d||!(d.v===1||d.v===2)||!Array.isArray(d.tx)) throw 0; S=migrate(d); save(); closeSheet(); render(); toast('Backup restored'); }
+      try{ const raw=sh.querySelector('#rsTa').value; if(raw.length>5e6) throw 0; const d=JSON.parse(raw); if(!d||!(d.v===1||d.v===2)||!Array.isArray(d.tx)) throw 0; S=migrate(d); save(); closeSheet(); render(); toast('Backup restored'); }
       catch(e){ const er=sh.querySelector('#rsErr'); er.hidden=false; er.textContent='That doesn’t look like an Eight backup. Copy it again from “Copy backup” and paste the whole thing.'; }
     }; }, 'Restore');
   q('#reset').onclick=()=>confirmSheet('Erase everything?', 'Your plan and every entry on this device will be deleted. This can’t be undone.', 'Erase', ()=>{ S=freshState(); save(); tab='home'; render(); });
@@ -1358,8 +1425,10 @@ function logPayment(raw){
   try{ text = decodeURIComponent(text); }catch(e){} // tolerate double encoding
   const bar = text.indexOf('|');
   const amountPart = bar>-1 ? text.slice(0,bar) : text;
-  const merchant = (bar>-1 ? text.slice(bar+1) : '').trim().slice(0,60);
-  const amount = parseAmount(amountPart);
+  const merchant = (bar>-1 ? text.slice(bar+1) : '').replace(/[\u0000-\u001f\u007f]/g,'').trim().slice(0,60);
+  const amount = Math.min(parseAmount(amountPart.slice(0,40)), 1e9);
+  // A negative amount ("-AED 5", "(AED 5)") is a refund: log it as money received, not spending.
+  const refund = /^[\s\D]*[-\u2212(]/.test(amountPart.slice(0,40)) || /^[^\d]*\d[\d.,\s]*-\s*$/.test(amountPart.slice(0,40));
   let cur = detectCurrency(amountPart) || S.currency;
   if(cur!==S.currency && !rate(cur, S.currency)) cur = S.currency;
   tab = 'home'; render();
@@ -1380,11 +1449,11 @@ function logPayment(raw){
   const dupe = S.tx.find(t=>t.source==='applepay' && (t.orig?t.orig.amount:t.amount)===amount && (t.orig?t.orig.cur:S.currency)===cur && (t.merchant||'')===merchant && now-(t.ts||0) < 60000);
   if(dupe){ return; }
   const k = rate(cur, S.currency);
-  const tx = {id:uid(), type:'spend', amount: cur===S.currency ? amount : toHome(amount,k), cat:guessCategory(merchant), date:ymd(today0()), note:merchant, merchant, source:'applepay', ts:now,
+  const tx = {id:uid(), type: refund ? 'in' : 'spend', amount: cur===S.currency ? amount : toHome(amount,k), cat:guessCategory(merchant), date:ymd(today0()), note:merchant, merchant, source:'applepay', ts:now,
     ...(cur===S.currency ? {} : {orig:{amount, cur, rate:k}})};
   if(cur!==S.currency) rememberCur(cur);
   S.tx.push(tx); save(); render();
-  toast('Logged '+fmt(tx.amount)+(tx.orig?' ('+fmtCur(amount,cur)+')':'')+(merchant?' at '+merchant:'')+' · '+cat(tx.cat).name, {label:'Undo', run:()=>{ S.tx=S.tx.filter(t=>t.id!==tx.id); save(); render(); toast('Removed'); }});
+  toast((refund?'Logged refund ':'Logged ')+fmt(tx.amount)+(tx.orig?' ('+fmtCur(amount,cur)+')':'')+(merchant?' at '+merchant:'')+' · '+cat(tx.cat).name, {label:'Undo', run:()=>{ S.tx=S.tx.filter(t=>t.id!==tx.id); save(); render(); toast('Removed'); }});
 }
 
 function openFromLink(url){
