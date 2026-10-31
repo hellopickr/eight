@@ -54,6 +54,16 @@ definitions:
         /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$PLIST" 2>/dev/null || true
         /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" "$PLIST"
         /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations~ipad" "$PLIST" 2>/dev/null || true
+    - &licences
+      name: Bundle open-source licence notices into the app
+      script: |
+        out=docs/open-source-licenses.txt
+        echo "Eight includes the following open-source software." > "$out"
+        for pkg in core ios app preferences; do
+          f="node_modules/@capacitor/$pkg/LICENSE"
+          if [ -f "$f" ]; then printf '\n==== @capacitor/%s ====\n' "$pkg" >> "$out"; cat "$f" >> "$out"; fi
+        done
+        wc -l "$out"
     - &sync
       name: Copy the web app into iOS
       script: npx cap sync ios
@@ -86,6 +96,7 @@ workflows:
       - *ios_target
       - *icons
       - *plist
+      - *licences
       - *sync
       - name: Set up code signing
         script: xcode-project use-profiles
@@ -127,6 +138,7 @@ workflows:
       - *ios_target
       - *icons
       - *plist
+      - *licences
       - *sync
       - name: Build for the iPhone simulator
         script: |
@@ -158,7 +170,8 @@ workflows:
           n=1
           for view in home add activity plan welcome; do
             xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
-            sed "s#<head>#<head><script>window.__SHOT='$view'</script>#" /tmp/eight-index.html > "$APP/public/index.html"
+            # Screenshots only: drop the security policy so the screenshot hook script can run.
+            sed -e '/Content-Security-Policy/d' -e "s#<head>#<head><script>window.__SHOT='$view'</script>#" /tmp/eight-index.html > "$APP/public/index.html"
             grep -c "__SHOT='$view'" "$APP/public/index.html"
             xcrun simctl launch "$UDID" "$BUNDLE_ID"
             sleep 7
