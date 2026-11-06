@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-B9UO6YrhSW90r9eQK0tuuNFh0hXyakd1CkmDbh7iuzQ=' 'sha256-9W2M+jO9qv8SrWgneeOlaranr5Wu+zINhoknJFpF8q0='; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://latest.currency-api.pages.dev; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-xGHbsd6FMijGaeMxJqxY/Au4d/VfZAYgvP/oJjP+tvk=' 'sha256-9W2M+jO9qv8SrWgneeOlaranr5Wu+zINhoknJFpF8q0='; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; img-src 'self' data:; connect-src 'self' https://cdn.jsdelivr.net https://latest.currency-api.pages.dev; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="description" content="Eight is a free, private budgeting app. Know what you can spend until payday.">
 <meta name="theme-color" content="#5b2bd6">
@@ -352,7 +352,15 @@ details.adds .formula{margin-top:12px}
 .hero-btns button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;white-space:nowrap;border-radius:13px;background:rgba(255,255,255,.16);color:#fff;font-weight:700;font-size:14.5px}
 .hero-btns button.solid{background:#fff;color:#4a1fc0}
 .hero-btns svg{width:18px;height:18px}
-.vlist{display:flex;flex-direction:column;gap:10px}
+.vlist{display:flex;flex-direction:column;gap:6px}
+.start-row{display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px 14px;margin-top:-10px;border-radius:0 0 18px 18px;background:var(--surface);border-top:1px dashed var(--line);font-size:14px;color:var(--muted);text-align:left}
+.start-row svg{width:16px;height:16px}
+.start-row span{flex:1}
+.start-row b{color:var(--brand-text);font-weight:700}
+.start-row > svg:last-child{transform:rotate(-90deg)}
+.vcard{border-radius:18px 18px 0 0!important}
+.start-cta{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;margin-top:10px;padding:9px 14px;border-radius:99px;background:rgba(255,255,255,.16);color:#fff;font-weight:600;font-size:15px;position:relative}
+.start-cta svg{width:17px;height:17px}
 .vcard{display:flex;flex-direction:column;gap:10px;width:100%;text-align:left;background:var(--surface);border-radius:18px;padding:14px 16px}
 .vcard .r1{display:flex;align-items:center;gap:12px;min-width:0}
 .vcard .ico{background:var(--brand-soft);color:var(--brand-text)}
@@ -465,7 +473,8 @@ const P = {
   tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.3" fill="currentColor"/>',
   vault:'<rect x="3" y="4" width="18" height="15" rx="2.5"/><circle cx="12" cy="11.5" r="3.6"/><path d="M12 7.9v1.2M12 13.9v1.2M8.4 11.5h1.2M14.4 11.5h1.2M6.5 19v2M17.5 19v2"/>',
   arrowOut:'<path d="M12 15V4M6.5 9.5 12 4l5.5 5.5M5 20h14"/>',
-  bars:'<path d="M4 20V11M10 20V5M16 20v-7M21 20H3"/>'
+  bars:'<path d="M4 20V11M10 20V5M16 20v-7M21 20H3"/>',
+  edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'
 };
 const PICKABLE = ['food','coffee','cart','car','bag','ticket','heart','receipt','home','plane','book','gift','phone','wifi','bolt','play','shield','dumbbell','paw','baby','coins','tag','sparkle','dots'];
 const ic = (k, cls='i') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]||P.dots}</svg>`;
@@ -832,8 +841,28 @@ function addMove(vault, type, amount, date, note, budget){
   S.vmoves.push(m); return m;
 }
 function setOpening(v, amount){
+  const old = S.vmoves.filter(m=>m.vault===v.id && m.type==='open').map(m=>m.date).sort()[0];
   S.vmoves = S.vmoves.filter(m=>!(m.vault===v.id && m.type==='open'));
-  if(amount>0) addMove(v.id, 'open', amount, ymd(today0()), '');
+  if(amount>0) addMove(v.id, 'open', amount, old || ymd(today0()), 'Starting balance');
+}
+// Starting balance: money the person had already saved before using Eight. Never touches spending money.
+function startSheet(vaultId){
+  let vid = vaultId || S.vaults[0].id;
+  openSheet(`<div class="stack">
+    <div class="sheet-head"><h2>Starting balance</h2><button class="btn ghost sm" id="sbX">Cancel</button></div>
+    <p class="muted" style="margin:0">How much had you already saved before using Eight? This sets your vault’s starting point and doesn’t change your spending money. You can edit it any time.</p>
+    ${S.vaults.length>1?`<div class="chips">${S.vaults.map(v=>`<button class="chip" data-sv="${v.id}" aria-pressed="${v.id===vid}">${ic(v.icon)}${esc(vname(v))}</button>`).join('')}</div>`:''}
+    <label class="field"><span>Already saved</span><div class="money"><em>${esc(S.currency)}</em><input class="input num" id="sbAmt" inputmode="decimal" placeholder="0" autocomplete="off"></div></label>
+    <p class="muted num" id="sbLine" style="margin:-6px 0 0;font-size:13px"></p>
+    <button class="btn primary" id="sbOk">Save starting balance</button>
+  </div>`, sh=>{
+    const q=s=>sh.querySelector(s);
+    const fill=()=>{ const v=vaultById(vid), o=openingOf(v); q('#sbAmt').value = o||''; q('#sbLine').textContent = vname(v)+' now holds '+fmt(vBal(v.id))+(o?' (starting balance '+fmt(o)+')':''); };
+    sh.querySelectorAll('[data-sv]').forEach(b=>b.onclick=()=>{ vid=b.dataset.sv; sh.querySelectorAll('[data-sv]').forEach(x=>x.setAttribute('aria-pressed',x===b)); fill(); });
+    q('#sbX').onclick=closeSheet;
+    q('#sbOk').onclick=()=>{ const v=vaultById(vid), amt=num(q('#sbAmt').value); setOpening(v, amt>0?amt:0); save(); closeSheet(); render(); toast(amt>0?'Starting balance set to '+fmt(amt):'Starting balance removed'); };
+    fill(); setTimeout(()=>q('#sbAmt').focus(), 50);
+  }, 'Starting balance');
 }
 const openingOf = v => r2(S.vmoves.filter(m=>m.vault===v.id && m.type==='open').reduce((a,m)=>a+m.amount,0));
 function vaultLine(v, extra){
@@ -1224,7 +1253,9 @@ function homeView(){
     <section class="hb3" aria-label="Your vault">${coinDeco('deco')}
       <div class="top"><div class="lab">${S.vaults.length>1?'Your vaults':'Your vault'}</div><button class="vic" data-go="vault" aria-label="Open vault">${ic('vault')}</button></div>
       <div class="amt num" data-fit>${bigMoney(Math.round(vTotal()))}</div>
-      <div class="meta num">${lastIn?'Last added '+esc(fmt(lastIn.amount))+' on '+esc(shortDate(parseYmd(lastIn.date))):'Nothing added yet'}</div>
+      ${(()=>{ const o=r2(S.vaults.reduce((t,v)=>t+openingOf(v),0));
+        return o>0 ? `<button class="start-cta num" id="hStart">${ic('edit')}Starting balance ${esc(fmt(o))}</button>`
+                   : `<button class="start-cta" id="hStart">${ic('plus')}Add what you’ve already saved</button>`; })()}
       <div class="acts"><button class="solid" id="hIn">${ic('arrowIn')}Add money</button><button id="hOut" ${vTotal()>0?'':'disabled'}>${ic('arrowOut')}Take out</button></div>
       ${autoRow}
     </section>
@@ -1355,7 +1386,8 @@ function vaultCard(v){
   return `<button class="vcard" data-vault="${v.id}">
     <span class="r1"><span class="ico">${ic(v.icon)}</span><span class="nm"><b>${esc(vname(v))}</b><small class="num">${v.target?'Goal '+esc(fmt(v.target)):v.monthly?esc(fmt(v.monthly))+' a month':'No monthly amount'}</small></span><span class="bal num">${fmt(bal)}</span></span>
     ${v.target?`<span class="prog"><i style="width:${pct}%"></i></span>`:''}
-    <span class="ln num">${esc(vaultLine(v))}</span></button>`;
+    <span class="ln num">${esc(vaultLine(v))}</span></button>
+    <button class="start-row num" data-start="${v.id}">${ic('vault')}<span>Starting balance</span><b>${openingOf(v)>0?esc(fmt(openingOf(v))):'Add'}</b>${ic('chev')}</button>`;
 }
 function vaultView(){
   const total=vTotal(), plan=planTotal();
@@ -1404,6 +1436,7 @@ function bindVault(){
   q('#vOut').onclick=()=>moveSheet('out');
   q('#vNew').onclick=()=>vaultSheet(newVault(''), true);
   root.querySelectorAll('[data-vault]').forEach(b=>b.onclick=()=>{ const v=vaultById(b.dataset.vault); v&&vaultSheet(v,false); });
+  root.querySelectorAll('[data-start]').forEach(b=>b.onclick=()=>startSheet(b.dataset.start));
   bindMoves(root);
 }
 
@@ -1457,7 +1490,7 @@ function vaultSheet(v, isNew){
       <label class="field"><span>Goal (optional)</span><div class="money"><em>${cur}</em><input class="input num" id="vsTarget" inputmode="decimal" value="${v.target||''}" placeholder="0"></div></label>
       <label class="field"><span>Add each month</span><div class="money"><em>${cur}</em><input class="input num" id="vsMonthly" inputmode="decimal" value="${v.monthly||''}" placeholder="0"></div></label>
     </div>
-    ${isNew?`<label class="field"><span>Already saved (optional)</span><div class="money"><em>${cur}</em><input class="input num" id="vsOpen" inputmode="decimal" placeholder="0"></div></label>`:''}
+    <label class="field"><span>Starting balance (what you’d already saved)</span><div class="money"><em>${cur}</em><input class="input num" id="vsOpen" inputmode="decimal" value="${isNew?'':(openingOf(v)||'')}" placeholder="0"></div></label>
     <p class="muted num" id="vsLine" style="margin:0;font-size:14px"></p>
     <p class="muted" style="margin:0;font-size:13px">The monthly amount comes off your budget first, so what’s free to spend each day already allows for it. At the end of each month, Eight offers to move it, plus anything you didn’t spend, into your vault.</p>
     ${isNew?'<button class="btn primary" id="vsCreate">Create vault</button>':''}
@@ -1467,6 +1500,7 @@ function vaultSheet(v, isNew){
     const q=s=>sh.querySelector(s);
     const keep = () => { if(!isNew) save(); };
     const line = () => { const extra = isNew ? num(q('#vsOpen').value) : 0; q('#vsLine').textContent = vaultLine(v, extra); };
+    if(!isNew) q('#vsOpen').onchange=e=>{ setOpening(v, Math.max(0,num(e.target.value))); save(); const bb=sh.querySelector('.big-bal'); if(bb) bb.textContent=fmt(vBal(v.id)); line(); };
     q('#vsName').oninput=e=>{ v.name=e.target.value.slice(0,40); keep(); };
     sh.querySelectorAll('[data-ik]').forEach(b=>b.onclick=()=>{ v.icon=b.dataset.ik; keep(); sh.querySelectorAll('[data-ik]').forEach(x=>x.setAttribute('aria-pressed',x===b)); });
     q('#vsTarget').oninput=e=>{ v.target=num(e.target.value); keep(); line(); };
@@ -1656,6 +1690,7 @@ function renderApp(){
   });
   const hm=root.querySelector('#hMore'); if(hm) hm.onclick=()=>root.querySelector('#homeMore').scrollIntoView({behavior:'smooth'});
   const hi=root.querySelector('#hIn'); if(hi) hi.onclick=()=>moveSheet('in');
+  const hs=root.querySelector('#hStart'); if(hs) hs.onclick=()=>startSheet();
   const ho=root.querySelector('#hOut'); if(ho) ho.onclick=()=>moveSheet('out');
   const mo=root.querySelector('#meOpen'); if(mo) mo.onclick=monthEndSheet;
   const ms=root.querySelector('#meSet'); if(ms) ms.onclick=monthEndSettings;
