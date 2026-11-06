@@ -168,7 +168,7 @@ workflows:
           xcrun simctl launch "$UDID" "$BUNDLE_ID"
           sleep 10
           n=1
-          for view in home add activity plan welcome; do
+          for view in home vault activity add welcome; do
             xcrun simctl terminate "$UDID" "$BUNDLE_ID" || true
             # Screenshots only: drop the security policy so the screenshot hook script can run.
             sed -e '/Content-Security-Policy/d' -e "s#<head>#<head><script>window.__SHOT='$view'</script>#" /tmp/eight-index.html > "$APP/public/index.html"
@@ -181,12 +181,12 @@ workflows:
           cp /tmp/eight-index.html "$APP/public/index.html"
           sips -g pixelWidth -g pixelHeight screenshots/*.png
           md5 screenshots/*.png
-      - name: Upload screenshots to the Eight 1.0 draft in App Store Connect
+      - name: Upload screenshots to the Eight 1.1.0 draft in App Store Connect
         script: |
           set -e
           # Talks to the App Store Connect API directly (fastlane's key loader fails on this Ruby).
           python3 -m venv /tmp/asc
           /tmp/asc/bin/pip install --quiet pyjwt cryptography
-          /tmp/asc/bin/python scripts/upload_screenshots.py screenshots 1.0 APP_IPHONE_67
+          /tmp/asc/bin/python scripts/upload_screenshots.py screenshots 1.1.0 APP_IPHONE_67
     artifacts:
       - screenshots/*.png
